@@ -1,0 +1,30 @@
+{
+  "overallRiskScore": 28,
+  "riskLevel": "LOW",
+  "risks": [
+    {
+      "id": "RISK-001",
+      "type": "LINE_SIDE_SHORTAGE",
+      "severity": "HIGH",
+      "area": "Assembly Line A",
+      "position": [12, 1, -10],
+      "material": "MAT-004 MOSFET Connector",
+      "probability": 0.78,
+      "impact": "High risk of 15 min assembly line starvation if takt time decreases.",
+      "description": "Replenishment route congested near Stage S1. Line-side buffer down to 18 min supply.",
+      "detectedAt": "08:04:15"
+    },
+    {
+      "id": "RISK-002",
+      "type": "STAGING_OVERFLOW",
+      "severity": "MEDIUM",
+      "area": "Staging Zone S1",
+      "position": [10, 1, -8],
+      "material": "Pallet Buffer Overflow",
+      "probability": 0.55,
+      "impact": "AMR drop-off delay of 2.5 minutes per trip.",
+      "description": "Pallet utilization at 85%. Additional volume will cause AGV queueing.",
+      "detectedAt": "08:02:30"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "unitsPerHour": 100,
+  "shift": "2 ca · 16h",
+  "mix": [
+    { "model": "ECU-A", "pct": 40 },
+    { "model": "Alternator-B", "pct": 35 },
+    { "model": "Sensor-C", "pct": 25 }
+  ],
+  "sequence": ["ECU-A", "Alternator-B", "ECU-A", "Sensor-C"]
+}

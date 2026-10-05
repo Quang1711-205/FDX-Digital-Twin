@@ -1,0 +1,28 @@
+[
+  {
+    "id": "ACTUAL-20261004-A",
+    "timestamp": "2026-10-04 16:45:00",
+    "scenarioName": "Baseline Shift A",
+    "productionOutput": 1004,
+    "logisticsPerformance": 98.4,
+    "shortageEventsCount": 0,
+    "amrAvgUtilization": 66.5,
+    "downtimeMinutes": 0,
+    "recommendationApplied": "Standard Shift Operations Plan",
+    "status": "SUCCESS",
+    "learningFeedback": "Logistics cadence matched takt time perfectly. Zero material shortages."
+  },
+  {
+    "id": "ACTUAL-20261005-A",
+    "timestamp": "2026-10-05 07:15:00",
+    "scenarioName": "Shift Start Verification",
+    "productionOutput": 210,
+    "logisticsPerformance": 96.2,
+    "shortageEventsCount": 0,
+    "amrAvgUtilization": 71.0,
+    "downtimeMinutes": 0,
+    "recommendationApplied": "Dynamic Buffer Allocation S1",
+    "status": "SUCCESS",
+    "learningFeedback": "Pre-shift replenishment buffer established smoothly."
+  }
+]

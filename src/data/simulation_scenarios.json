@@ -1,0 +1,93 @@
+[
+  {
+    "id": "SCENARIO-BASELINE",
+    "name": "Baseline Shift Plan (100%)",
+    "productionVolumePercent": 100,
+    "amrCount": 6,
+    "stagingCapacityBonus": 0,
+    "priorityMode": "BALANCED",
+    "results": {
+      "productionOutput": 1000,
+      "amrUtilization": 68,
+      "logisticsWorkload": 64,
+      "shortageRisk": 18,
+      "stagingUtilization": 62,
+      "estimatedDowntimeMinutes": 4,
+      "logisticsCostIndex": 100,
+      "overallScore": 92
+    }
+  },
+  {
+    "id": "SCENARIO-PLUS-10",
+    "name": "Production Surge (+10%)",
+    "productionVolumePercent": 110,
+    "amrCount": 6,
+    "stagingCapacityBonus": 0,
+    "priorityMode": "BALANCED",
+    "results": {
+      "productionOutput": 1100,
+      "amrUtilization": 81,
+      "logisticsWorkload": 78,
+      "shortageRisk": 34,
+      "stagingUtilization": 74,
+      "estimatedDowntimeMinutes": 12,
+      "logisticsCostIndex": 112,
+      "overallScore": 78
+    }
+  },
+  {
+    "id": "SCENARIO-PLUS-20",
+    "name": "High Surge Demand (+20%)",
+    "productionVolumePercent": 120,
+    "amrCount": 6,
+    "stagingCapacityBonus": 0,
+    "priorityMode": "BALANCED",
+    "results": {
+      "productionOutput": 1200,
+      "amrUtilization": 94,
+      "logisticsWorkload": 96,
+      "shortageRisk": 78,
+      "stagingUtilization": 92,
+      "estimatedDowntimeMinutes": 38,
+      "logisticsCostIndex": 135,
+      "overallScore": 54
+    }
+  },
+  {
+    "id": "SCENARIO-PLUS-20-AMR",
+    "name": "Surge + Deploy AMR-07 (+20% Vol, 7 AMRs)",
+    "productionVolumePercent": 120,
+    "amrCount": 7,
+    "stagingCapacityBonus": 20,
+    "priorityMode": "MATERIAL_CRITICAL",
+    "results": {
+      "productionOutput": 1200,
+      "amrUtilization": 76,
+      "logisticsWorkload": 72,
+      "shortageRisk": 19,
+      "stagingUtilization": 65,
+      "estimatedDowntimeMinutes": 6,
+      "logisticsCostIndex": 118,
+      "overallScore": 94
+    },
+    "isRecommended": true
+  },
+  {
+    "id": "SCENARIO-PLUS-20-MAX",
+    "name": "Surge Max Capacity (+20% Vol, 8 AMRs, +40% Stage)",
+    "productionVolumePercent": 120,
+    "amrCount": 8,
+    "stagingCapacityBonus": 40,
+    "priorityMode": "PRODUCTION_CRITICAL",
+    "results": {
+      "productionOutput": 1200,
+      "amrUtilization": 69,
+      "logisticsWorkload": 65,
+      "shortageRisk": 11,
+      "stagingUtilization": 52,
+      "estimatedDowntimeMinutes": 2,
+      "logisticsCostIndex": 130,
+      "overallScore": 90
+    }
+  }
+]

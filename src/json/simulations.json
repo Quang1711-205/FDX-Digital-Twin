@@ -1,0 +1,8 @@
+{
+  "scenarios": [
+    { "id": "s1", "name": "Giữ nguyên", "addAmr": 0, "extraTrips": 0, "cost": 0 },
+    { "id": "s2", "name": "+1 AMR", "addAmr": 1, "extraTrips": 0, "cost": 12 },
+    { "id": "s3", "name": "+2 AMR", "addAmr": 2, "extraTrips": 0, "cost": 24 },
+    { "id": "s4", "name": "Forklift milk-run tăng ca", "addAmr": 0, "extraTrips": 6, "cost": 8 }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "amr": { "available": 7, "tripsPerHour": 5 },
+  "forklift": 3,
+  "operators": 12,
+  "staging": { "pallets": 24 },
+  "picking": { "capacity": 42, "kitters": 4 },
+  "warehouse": { "dockCapacity": 55 },
+  "line": { "capacityUnits": 130 }
+}

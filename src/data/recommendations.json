@@ -1,0 +1,22 @@
+{
+  "recommendations": [
+    {
+      "id": "REC-001",
+      "priority": "HIGH",
+      "title": "Deploy AMR-07 & Reroute MAT-004 Replenishment",
+      "reason": "Projected +20% production surge will exceed Line A replenishment bandwidth by 28%. High risk of line stoppage on MAT-004.",
+      "actions": [
+        "Deploy standby robot AMR-07 to Line A replenishment route",
+        "Elevate material MAT-004 delivery priority to CRITICAL",
+        "Enable Staging Area S2 overflow buffer for Line A components"
+      ],
+      "suggestedScenarioId": "SCENARIO-PLUS-20-AMR",
+      "expectedImpact": {
+        "shortageRiskDelta": -31,
+        "amrUtilizationDelta": -9,
+        "downtimeRiskDelta": -42,
+        "outputGainPercent": 20
+      }
+    }
+  ]
+}

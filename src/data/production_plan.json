@@ -1,0 +1,37 @@
+{
+  "plant": "DENSO Smart Factory - Plant 4",
+  "area": "Automotive ECU & Sensor Assembly",
+  "shift": "Shift A",
+  "date": "2026-10-05",
+  "baseline": {
+    "dailyProduction": 1000,
+    "taktTime": 42,
+    "activeLines": 3
+  },
+  "models": [
+    {
+      "id": "MOD-ECU-01",
+      "name": "High-Perf ECU Module (Denso-X1)",
+      "vehicleLine": "Toyota EV Platform B",
+      "plannedQty": 450,
+      "actualQty": 412,
+      "requiredMaterials": ["MAT-001", "MAT-002", "MAT-004"]
+    },
+    {
+      "id": "MOD-SNS-02",
+      "name": "Radar Distance Sensor Gen3",
+      "vehicleLine": "Lexus ADAS Suite",
+      "plannedQty": 350,
+      "actualQty": 340,
+      "requiredMaterials": ["MAT-003", "MAT-005"]
+    },
+    {
+      "id": "MOD-INV-03",
+      "name": "Inverter Control Sub-Assembly",
+      "vehicleLine": "Hybrid Powertrain",
+      "plannedQty": 200,
+      "actualQty": 195,
+      "requiredMaterials": ["MAT-002", "MAT-006"]
+    }
+  ]
+}

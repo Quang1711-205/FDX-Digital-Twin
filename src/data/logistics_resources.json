@@ -1,0 +1,161 @@
+{
+  "amrs": [
+    {
+      "id": "AMR-01",
+      "name": "Heavy Payload AMR Heavy-1",
+      "status": "MOVING",
+      "battery": 94,
+      "capacity": 500,
+      "currentPosition": [-18, 0, 8],
+      "targetPosition": [-10, 0, -5],
+      "speed": 1.5,
+      "currentTask": "TASK-101",
+      "utilization": 72,
+      "payload": "MAT-001 Pallet",
+      "totalTripsToday": 42,
+      "distanceTraveledKm": 12.8,
+      "assignedZone": "Zone B Storage"
+    },
+    {
+      "id": "AMR-02",
+      "name": "High-Speed AMR Runner-2",
+      "status": "MOVING",
+      "battery": 88,
+      "capacity": 250,
+      "currentPosition": [-5, 0, -10],
+      "targetPosition": [12, 0, -10],
+      "speed": 2.0,
+      "currentTask": "TASK-102",
+      "utilization": 85,
+      "payload": "MAT-002 Bin",
+      "totalTripsToday": 58,
+      "distanceTraveledKm": 18.4,
+      "assignedZone": "Line A Replenishment"
+    },
+    {
+      "id": "AMR-03",
+      "name": "Precision AGV Flex-3",
+      "status": "LOADING",
+      "battery": 76,
+      "capacity": 300,
+      "currentPosition": [-22, 0, -8],
+      "targetPosition": [-22, 0, -8],
+      "speed": 1.2,
+      "currentTask": "TASK-103",
+      "utilization": 64,
+      "payload": "Empty Pallet",
+      "totalTripsToday": 36,
+      "distanceTraveledKm": 10.2,
+      "assignedZone": "Zone A Receiving"
+    },
+    {
+      "id": "AMR-04",
+      "name": "Standard Line Replenisher-4",
+      "status": "MOVING",
+      "battery": 91,
+      "capacity": 350,
+      "currentPosition": [5, 0, 5],
+      "targetPosition": [18, 0, 5],
+      "speed": 1.6,
+      "currentTask": "TASK-104",
+      "utilization": 79,
+      "payload": "MAT-004 Box",
+      "totalTripsToday": 50,
+      "distanceTraveledKm": 15.6,
+      "assignedZone": "Line B Replenishment"
+    },
+    {
+      "id": "AMR-05",
+      "name": "Finished Goods Shuttle-5",
+      "status": "UNLOADING",
+      "battery": 65,
+      "capacity": 400,
+      "currentPosition": [20, 0, 10],
+      "targetPosition": [20, 0, 10],
+      "speed": 1.4,
+      "currentTask": "TASK-105",
+      "utilization": 58,
+      "payload": "ECU Assemblies",
+      "totalTripsToday": 31,
+      "distanceTraveledKm": 9.5,
+      "assignedZone": "Zone D Staging"
+    },
+    {
+      "id": "AMR-06",
+      "name": "Backup Fleet AMR-6",
+      "status": "IDLE",
+      "battery": 100,
+      "capacity": 300,
+      "currentPosition": [0, 0, 12],
+      "targetPosition": [0, 0, 12],
+      "speed": 0.0,
+      "currentTask": null,
+      "utilization": 22,
+      "payload": null,
+      "totalTripsToday": 14,
+      "distanceTraveledKm": 4.1,
+      "assignedZone": "Central Charging Hub"
+    }
+  ],
+  "forklifts": [
+    {
+      "id": "FL-01",
+      "operator": "K. Tanaka",
+      "status": "MOVING",
+      "currentZone": "Zone A - Raw Warehouse",
+      "battery": 82,
+      "utilization": 68
+    },
+    {
+      "id": "FL-02",
+      "operator": "S. Sato",
+      "status": "IDLE",
+      "currentZone": "Zone E - Outbound Docks",
+      "battery": 95,
+      "utilization": 45
+    }
+  ],
+  "stagingAreas": [
+    {
+      "id": "STAGE-S1",
+      "name": "Assembly Line A Buffer",
+      "capacityPallets": 20,
+      "usedPallets": 17,
+      "utilization": 85,
+      "status": "NEAR_CAPACITY",
+      "position": [10, 0, -8]
+    },
+    {
+      "id": "STAGE-S2",
+      "name": "Assembly Line B Buffer",
+      "capacityPallets": 20,
+      "usedPallets": 11,
+      "utilization": 55,
+      "status": "NORMAL",
+      "position": [10, 0, 4]
+    },
+    {
+      "id": "STAGE-S3",
+      "name": "Finished Goods Staging",
+      "capacityPallets": 35,
+      "usedPallets": 22,
+      "utilization": 62,
+      "status": "NORMAL",
+      "position": [22, 0, 8]
+    }
+  ],
+  "loadingDocks": [
+    {
+      "id": "DOCK-01",
+      "name": "Inbound Truck Bay 1",
+      "status": "UNLOADING",
+      "assignedTruck": "TRK-DENSO-882"
+    },
+    {
+      "id": "DOCK-02",
+      "name": "Inbound Truck Bay 2",
+      "status": "AVAILABLE",
+      "assignedTruck": null
+    }
+  ]
+}

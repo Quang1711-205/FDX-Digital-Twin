@@ -1,0 +1,8 @@
+{
+  "items": [
+    { "id": "M1", "name": "PCB ECU", "perUnit": 3, "tripQty": 40, "stock": 250, "line": "A" },
+    { "id": "M2", "name": "Cuộn dây Alt", "perUnit": 4, "tripQty": 40, "stock": 300, "line": "A" },
+    { "id": "M3", "name": "Vỏ cảm biến", "perUnit": 2.5, "tripQty": 40, "stock": 220, "line": "B" },
+    { "id": "M4", "name": "Connector", "perUnit": 2.5, "tripQty": 40, "stock": 240, "line": "B" }
+  ]
+}
