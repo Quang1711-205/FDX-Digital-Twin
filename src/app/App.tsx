@@ -7,21 +7,53 @@ import materialsData from '../json/materials.json';
 import RS from '../json/logistics_resources.json';
 import operationsData from '../json/operations.json';
 import simulationsData from '../json/simulations.json';
-import recommendationsData from '../json/recommendations.json';
-import AC from '../json/actual_results.json';
+import { calculateOperationsSnapshot } from '../services/operationsEngine';
 
 const M = materialsData.items;
 const OP = operationsData.threshold;
 const SC = simulationsData.scenarios;
-const RC = recommendationsData as Record<string, { reason: string; kpi: string }>;
 
 const COL = ['#22c55e', '#f59e0b', '#ef4444'];
 const TXT = ['g', 'a', 'r'];
 
-interface DoneState {
+interface RunMetrics {
+  utilization: number;
+  capacity: number;
+  trips: number;
+  delay: number;
+  risk: number;
+  criticalMaterials: number;
+  warningMaterials: number;
+}
+
+interface RunRecord {
+  id: string;
+  timestamp: string;
   scenarioId: string;
   name: string;
-  predictedUtil: number;
+  productionPercent: number;
+  before: RunMetrics;
+  simulatedAfter: RunMetrics;
+  actualUtilization: number | null;
+}
+
+const RUN_HISTORY_KEY = 'fdx-logistics-run-history-v1';
+const RUN_HISTORY_LIMIT = 25;
+
+function readRunHistory(): RunRecord[] {
+  try {
+    const saved = localStorage.getItem(RUN_HISTORY_KEY);
+    const parsed: unknown = saved ? JSON.parse(saved) : [];
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((record): record is RunRecord =>
+      !!record && typeof record === 'object' &&
+      typeof record.id === 'string' && typeof record.timestamp === 'string' &&
+      typeof record.name === 'string' && typeof record.productionPercent === 'number' &&
+      !!record.before && !!record.simulatedAfter
+    ).slice(0, RUN_HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
 }
 
 export const App: React.FC = () => {
@@ -29,8 +61,12 @@ export const App: React.FC = () => {
   const [amr, setAmr] = useState<number>(RS.amr.available);
   const [extra, setExtra] = useState<number>(0);
   const [sel, setSel] = useState<string>('s1');
-  const [done, setDone] = useState<DoneState | null>(null);
+  const [runHistory, setRunHistory] = useState<RunRecord[]>(readRunHistory);
+  const [done, setDone] = useState<RunRecord | null>(() => runHistory[0] ?? null);
+  const [actualUtilInput, setActualUtilInput] = useState('');
   const [userSelected, setUserSelected] = useState<boolean>(false);
+  const [executionLocked, setExecutionLocked] = useState(() => runHistory.length > 0);
+  const executionLockRef = useRef(runHistory.length > 0);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
@@ -51,52 +87,70 @@ export const App: React.FC = () => {
 
   const labelElementsRef = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // Calculation function
+  // Build one typed operations snapshot for the current state or a what-if scenario.
   const calc = (addA = 0, xt = 0, currentF = f, currentAmr = amr, currentExtra = extra) => {
-    const units = P.unitsPerHour * currentF;
-    const items = M.map(m => {
-      const cons = m.perUnit * units;
-      const trips = cons / m.tripQty;
-      return { ...m, cons, trips, cover: (m.stock / cons) * 60, eff: 0, lvl: 0 };
+    const snapshot = calculateOperationsSnapshot({
+      unitsPerHour: P.unitsPerHour,
+      productionFactor: currentF,
+      amrCount: currentAmr + addA,
+      extraTrips: currentExtra + xt,
+      amrTripsPerHour: RS.amr.tripsPerHour,
+      materials: M,
+      thresholds: OP,
+      capacities: {
+        dockTripsPerHour: RS.warehouse.dockCapacity,
+        pickingTripsPerHour: RS.picking.capacity,
+        stagingPallets: RS.staging.pallets,
+        lineUnitsPerHour: RS.line.capacityUnits
+      }
     });
-    const trips = items.reduce((s, i) => s + i.trips, 0);
-    const cap = (currentAmr + addA) * RS.amr.tripsPerHour + currentExtra + xt;
-    const util = trips / cap;
-    const delay = Math.max(0, util - OP.knee) * OP.delayK;
-    items.forEach(i => {
-      i.eff = i.cover - delay;
-      i.lvl = i.eff < OP.red ? 2 : i.eff < OP.amber ? 1 : 0;
-    });
-    const risk = items.reduce((s, i) => s + (i.lvl === 2 ? 2 : i.lvl), 0);
-    return { units, items, trips, cap, util, delay, risk };
+    return {
+      units: snapshot.unitsPerHour,
+      items: snapshot.materials.map(item => ({ ...item, cons: item.consumptionPerHour, trips: item.tripsPerHour, cover: item.coverMinutes, eff: item.effectiveCoverMinutes, lvl: item.level === 'CRITICAL' ? 2 : item.level === 'WARNING' ? 1 : 0 })),
+      trips: snapshot.tripsPerHour,
+      cap: snapshot.transportCapacity,
+      util: snapshot.transportUtilization,
+      delay: snapshot.delayMinutes,
+      risk: snapshot.riskScore,
+      bottlenecks: snapshot.bottlenecks,
+      stagingPallets: snapshot.stagingPallets
+    };
   };
 
   const currentCalc = useMemo(() => calc(0, 0, f, amr, extra), [f, amr, extra]);
 
-  // Determine best scenario
-  const rec = useMemo(() => {
-    let b = SC[0].id;
-    let bs = 1e9;
-    SC.forEach(s => {
-      const c = calc(s.addAmr, s.extraTrips, f, amr, extra);
-      const sc = c.risk * 8 + s.cost;
-      if (sc < bs) {
-        bs = sc;
-        b = s.id;
-      }
-    });
-    return b;
-  }, [f, amr, extra]);
-
-  // Selected scenario handling
-  const selectedSel = (!done && !userSelected) ? rec : sel;
-
   const scenariosWithRes = useMemo(() => {
-    return SC.map(s => ({
-      ...s,
-      res: calc(s.addAmr, s.extraTrips, f, amr, extra)
-    }));
+    return SC.map((scenario, order) => {
+      const res = calc(scenario.addAmr, scenario.extraTrips, f, amr, extra);
+      const criticalMaterials = res.items.filter(item => item.lvl === 2).length;
+      const warningMaterials = res.items.filter(item => item.lvl === 1).length;
+      return {
+        ...scenario,
+        res,
+        order,
+        criticalMaterials,
+        warningMaterials,
+        score: res.risk * 8 + scenario.cost
+      };
+    });
   }, [f, amr, extra]);
+
+  // Lowest score wins; ties prefer lower cost and then the configured scenario order.
+  const rec = useMemo(() => [...scenariosWithRes]
+    .sort((a, b) => a.score - b.score || a.cost - b.cost || a.order - b.order)[0]?.id ?? SC[0].id,
+  [scenariosWithRes]);
+
+  const selectedSel = userSelected ? sel : rec;
+
+  const alreadyExecutedForCurrentState = executionLocked;
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(RUN_HISTORY_KEY, JSON.stringify(runHistory.slice(0, RUN_HISTORY_LIMIT)));
+    } catch {
+      // The current session still works when browser storage is unavailable or full.
+    }
+  }, [runHistory]);
 
   // Build AMRs in 3D scene
   const buildAmr = (currentAmrCount: number) => {
@@ -453,15 +507,12 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!padsRef.current) return;
     const c = currentCalc;
-    const occ = Math.min(RS.staging.pallets, Math.round(8 + c.util * 10));
     const lv = (u: number) => (u > 1 ? 2 : u > 0.9 ? 1 : 0);
-    const st = [
-      ['① Kho (xuất)', c.trips / RS.warehouse.dockCapacity, 'wh'],
-      ['② Picking/Kitting', c.trips / RS.picking.capacity, 'pk'],
-      ['③ Staging', occ / RS.staging.pallets, 'st'],
-      ['④ Transport', c.util, 'tr'],
-      ['⑤ Line A/B', c.units / RS.line.capacityUnits, 'la']
-    ] as const;
+    const st = c.bottlenecks.map((stage, index) => [
+      ['① ', '② ', '③ ', '④ ', '⑤ '][index] + stage.name,
+      stage.utilization,
+      ['wh', 'pk', 'st', 'tr', 'la'][index]
+    ] as const);
 
     st.forEach(x => {
       const L = lv(x[1]);
@@ -490,6 +541,8 @@ export const App: React.FC = () => {
     const val = Number(e.target.value) / 100;
     setF(val);
     setUserSelected(false);
+    executionLockRef.current = false;
+    setExecutionLocked(false);
   };
 
   const handleSelectScenario = (id: string) => {
@@ -498,46 +551,85 @@ export const App: React.FC = () => {
   };
 
   const handleApprove = () => {
+    if (executionLockRef.current) return;
     const s = scenariosWithRes.find(x => x.id === selectedSel);
     if (!s) return;
-    const c = s.res;
-    setAmr(prev => prev + s.addAmr);
-    setExtra(prev => prev + s.extraTrips);
-    setDone({
+    const before = currentCalc;
+    const after = calc(0, 0, f, amr + s.addAmr, extra + s.extraTrips);
+    const toRunMetrics = (result: typeof currentCalc): RunMetrics => ({
+      utilization: result.util,
+      capacity: result.cap,
+      trips: result.trips,
+      delay: result.delay,
+      risk: result.risk,
+      criticalMaterials: result.items.filter(item => item.lvl === 2).length,
+      warningMaterials: result.items.filter(item => item.lvl === 1).length
+    });
+    const record: RunRecord = {
+      id: `${Date.now()}-${s.id}`,
+      timestamp: new Date().toISOString(),
       scenarioId: s.id,
       name: s.name,
-      predictedUtil: c.util
-    });
+      productionPercent: Math.round(f * 100),
+      before: toRunMetrics(before),
+      simulatedAfter: toRunMetrics(after),
+      actualUtilization: null
+    };
+
+    executionLockRef.current = true;
+    setExecutionLocked(true);
+    setAmr(amr + s.addAmr);
+    setExtra(extra + s.extraTrips);
+    setDone(record);
+    setRunHistory(previous => [record, ...previous].slice(0, RUN_HISTORY_LIMIT));
+    setActualUtilInput('');
     setUserSelected(true);
+  };
+
+  const handleRecordActual = () => {
+    if (!done || actualUtilInput === '') return;
+    const actualUtilization = Number(actualUtilInput) / 100;
+    if (!Number.isFinite(actualUtilization) || actualUtilization < 0 || actualUtilization > 2) return;
+    const updated = { ...done, actualUtilization };
+    setDone(updated);
+    setRunHistory(previous => previous.map(run => run.id === done.id ? updated : run));
+  };
+
+  const handleStartNewEvaluation = () => {
+    executionLockRef.current = false;
+    setExecutionLocked(false);
+    setUserSelected(false);
+    setActualUtilInput('');
   };
 
   const handleReset = () => {
     setAmr(RS.amr.available);
     setExtra(0);
+    executionLockRef.current = false;
+    setExecutionLocked(false);
     setDone(null);
     setUserSelected(false);
+    setActualUtilInput('');
   };
 
   // Helper calculation variables for UI rendering
   const c = currentCalc;
   const pct = Math.round(f * 100);
   const uc = c.util > 1 ? 2 : c.util > 0.85 ? 1 : 0;
-  const occ = Math.min(RS.staging.pallets, Math.round(8 + c.util * 10));
+  const occ = c.stagingPallets;
   const lv = (u: number) => (u > 1 ? 2 : u > 0.9 ? 1 : 0);
 
-  const st = [
-    ['① Kho (xuất)', c.trips / RS.warehouse.dockCapacity, 'wh'],
-    ['② Picking/Kitting', c.trips / RS.picking.capacity, 'pk'],
-    ['③ Staging', occ / RS.staging.pallets, 'st'],
-    ['④ Transport', c.util, 'tr'],
-    ['⑤ Line A/B', c.units / RS.line.capacityUnits, 'la']
-  ] as const;
+  const st = c.bottlenecks.map((stage, index) => [
+    ['① ', '② ', '③ ', '④ ', '⑤ '][index] + stage.name,
+    stage.utilization,
+    ['wh', 'pk', 'st', 'tr', 'la'][index]
+  ] as const);
 
   const mx = Math.max(...st.map(x => x[1]));
   const bottleneckItem = st.find(x => x[1] === mx);
 
   const recScenario = SC.find(s => s.id === rec);
-  const recInfo = RC[rec];
+  const recEvaluation = scenariosWithRes.find(s => s.id === rec);
 
   return (
     <>
@@ -685,15 +777,15 @@ export const App: React.FC = () => {
             <div id="risk">
               {c.items.map((i, n) => (
                 <div className="row" key={n}>
-                  <span>
+                  <span title={`Tồn kho ban đầu đủ ${i.cover.toFixed(0)} phút; sau ${c.delay.toFixed(0)} phút trễ vận chuyển còn ${i.eff.toFixed(0)} phút. Cần ${i.trips.toFixed(1)} chuyến/giờ. Ngưỡng: đỏ dưới ${OP.red} phút, vàng dưới ${OP.amber} phút.`}>
                     <i className="dot" style={{ background: COL[i.lvl] }}></i>
                     {i.name} · Line {i.line}
                   </span>
-                  <b className={TXT[i.lvl]}>{i.eff.toFixed(0)}p</b>
+                  <b className={TXT[i.lvl]}>{i.eff.toFixed(0)} phút · {['Ổn định', 'Cảnh báo', 'Nguy cơ'][i.lvl]}</b>
                 </div>
               ))}
               <div className="row">
-                <span>Còn lại trước khi hết hàng (sau trễ)</span>
+                <span title="Thời gian tồn kho hiệu dụng bằng thời gian tồn kho ban đầu trừ độ trễ vận chuyển ước tính.">Tồn kho sau trễ · nhu cầu và ngưỡng rủi ro</span>
               </div>
             </div>
           </div>
@@ -704,9 +796,10 @@ export const App: React.FC = () => {
               <thead>
                 <tr>
                   <th>Phương án</th>
-                  <th>AMR</th>
-                  <th>Risk</th>
-                  <th>Chi phí</th>
+                  <th>Năng lực</th>
+                  <th>Tải / trễ</th>
+                  <th>Rủi ro vật tư</th>
+                  <th>Chi phí / điểm</th>
                 </tr>
               </thead>
               <tbody>
@@ -718,9 +811,12 @@ export const App: React.FC = () => {
                     style={{ cursor: 'pointer' }}
                   >
                     <td>{s.name}</td>
-                    <td>{(s.res.util * 100).toFixed(0)}%</td>
-                    <td className={TXT[s.res.risk >= 4 ? 2 : s.res.risk > 0 ? 1 : 0]}>{s.res.risk}</td>
-                    <td>+{s.cost}</td>
+                    <td>{s.res.cap.toFixed(0)} chuyến/h</td>
+                    <td>{(s.res.util * 100).toFixed(0)}%<small>{s.res.delay.toFixed(0)} phút trễ</small></td>
+                    <td className={TXT[s.criticalMaterials ? 2 : s.warningMaterials ? 1 : 0]}>
+                      {s.criticalMaterials} đỏ / {s.warningMaterials} vàng<small>{s.res.risk} điểm rủi ro</small>
+                    </td>
+                    <td>+{s.cost}<small>Điểm tổng: {s.score}</small></td>
                   </tr>
                 ))}
               </tbody>
@@ -729,27 +825,67 @@ export const App: React.FC = () => {
             <div id="rec" style={{ marginTop: '8px' }}>
               <b>Gợi ý AI: {recScenario ? recScenario.name : ''}</b>
               <div style={{ color: 'var(--m)' }}>
-                {recInfo?.reason}<br />
-                {recInfo?.kpi}
+                {recEvaluation && <>
+                  Tải vận chuyển {(recEvaluation.res.util * 100).toFixed(0)}%, năng lực {recEvaluation.res.cap.toFixed(0)} chuyến/giờ, trễ ước tính {recEvaluation.res.delay.toFixed(0)} phút.<br />
+                  {recEvaluation.criticalMaterials || recEvaluation.warningMaterials
+                    ? `${recEvaluation.criticalMaterials} vật tư nguy cơ, ${recEvaluation.warningMaterials} vật tư cảnh báo.`
+                    : 'Không còn vật tư vượt ngưỡng cảnh báo.'}<br />
+                  Điểm đề xuất = rủi ro {recEvaluation.res.risk} × 8 + chi phí {recEvaluation.cost} = {recEvaluation.score}.
+                </>}
               </div>
             </div>
 
             <div style={{ marginTop: '8px', display: 'flex', gap: '6px' }}>
-              <button id="ap" onClick={handleApprove}>Phê duyệt &amp; Thực thi</button>
+              <button id="ap" onClick={handleApprove} disabled={alreadyExecutedForCurrentState}>
+                {alreadyExecutedForCurrentState ? 'Đã thực thi phương án này' : 'Phê duyệt & Thực thi'}
+              </button>
+              {done && executionLocked && <button className="s" onClick={handleStartNewEvaluation}>Đánh giá vòng mới</button>}
               <button className="s" id="rs" onClick={handleReset}>Reset</button>
             </div>
 
             <div id="act" style={{ marginTop: '8px' }}>
               {done && (
                 <>
-                  <b className="g">Đã thực thi: {done.name}</b>
+                  <b className="g">Lần mô phỏng gần nhất: {done.name} · kế hoạch {done.productionPercent}%</b>
                   <div style={{ color: 'var(--m)' }}>
-                    Dự báo áp lực {(done.predictedUtil * 100).toFixed(0)}% → Thực tế {((done.predictedUtil + AC.utilDelta) * 100).toFixed(0)}%<br />
-                    {AC.note}
+                    Trước áp dụng: {(done.before.utilization * 100).toFixed(0)}% tải, {done.before.capacity.toFixed(0)} chuyến/giờ, {done.before.delay.toFixed(0)} phút trễ.<br />
+                    Sau mô phỏng: {(done.simulatedAfter.utilization * 100).toFixed(0)}% tải, {done.simulatedAfter.capacity.toFixed(0)} chuyến/giờ, {done.simulatedAfter.delay.toFixed(0)} phút trễ; {done.simulatedAfter.criticalMaterials} vật tư nguy cơ, {done.simulatedAfter.warningMaterials} cảnh báo.<br />
+                    Đây là kết quả mô phỏng, chưa phải số đo thực tế.
+                  </div>
+                  <div className="actual-feedback">
+                    <label htmlFor="actual-util">Tải AMR thực tế sau áp dụng (%)</label>
+                    <input
+                      id="actual-util"
+                      type="number"
+                      min="0"
+                      max="200"
+                      step="1"
+                      value={actualUtilInput}
+                      placeholder={done.actualUtilization === null ? 'Chưa có số đo' : (done.actualUtilization * 100).toFixed(0)}
+                      onChange={event => setActualUtilInput(event.target.value)}
+                    />
+                    <button className="s" onClick={handleRecordActual} disabled={actualUtilInput === ''}>Ghi nhận</button>
+                    {done.actualUtilization !== null && <small>
+                      Đã ghi nhận { (done.actualUtilization * 100).toFixed(0) }%. Sai lệch so với dự báo mô phỏng: {((done.actualUtilization - done.simulatedAfter.utilization) * 100).toFixed(0)} điểm phần trăm.
+                    </small>}
                   </div>
                 </>
               )}
             </div>
+            {runHistory.length > 0 && (
+              <details className="run-history">
+                <summary>Lịch sử chạy ({runHistory.length})</summary>
+                {runHistory.map(run => (
+                  <div className="run-history-item" key={run.id}>
+                    <b>{run.name} · {run.productionPercent}%</b>
+                    <small>{new Date(run.timestamp).toLocaleString()}</small>
+                    <small>Dự báo {(run.simulatedAfter.utilization * 100).toFixed(0)}% · {run.simulatedAfter.delay.toFixed(0)} phút trễ
+                      {run.actualUtilization !== null && ` · Đo thực tế ${(run.actualUtilization * 100).toFixed(0)}%`}
+                    </small>
+                  </div>
+                ))}
+              </details>
+            )}
           </div>
         </aside>
       </main>

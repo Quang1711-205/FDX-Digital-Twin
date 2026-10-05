@@ -71,6 +71,32 @@ export interface ScenarioMetrics {
   downtimeMinutesPerHour: number; // e.g. 0 vs 6 -> 1 min
 }
 
+export type RiskLevel = 'NORMAL' | 'WARNING' | 'CRITICAL';
+
+export interface OperationsSnapshot {
+  unitsPerHour: number;
+  materials: Array<{
+    id: string;
+    name: string;
+    perUnit: number;
+    tripQty: number;
+    stock: number;
+    line: string;
+    consumptionPerHour: number;
+    tripsPerHour: number;
+    coverMinutes: number;
+    effectiveCoverMinutes: number;
+    level: RiskLevel;
+  }>;
+  tripsPerHour: number;
+  transportCapacity: number;
+  transportUtilization: number;
+  delayMinutes: number;
+  stagingPallets: number;
+  bottlenecks: Array<{ id: string; name: string; utilization: number; level: RiskLevel }>;
+  riskScore: number;
+}
+
 export interface AIRecommendation {
   id: string;
   priority: 'HIGH' | 'URGENT';
