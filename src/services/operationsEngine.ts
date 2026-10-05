@@ -47,11 +47,11 @@ export function calculateOperationsSnapshot(input: OperationsInputs): Operations
 
   const stagingPallets = Math.min(input.capacities.stagingPallets, Math.round(8 + transportUtilization * 10));
   const bottlenecks: OperationsSnapshot['bottlenecks'] = [
-    { id: 'warehouse', name: 'Kho (xuất)', utilization: tripsPerHour / input.capacities.dockTripsPerHour },
-    { id: 'picking', name: 'Picking/Kitting', utilization: tripsPerHour / input.capacities.pickingTripsPerHour },
-    { id: 'staging', name: 'Staging', utilization: stagingPallets / input.capacities.stagingPallets },
-    { id: 'transport', name: 'Vận chuyển', utilization: transportUtilization },
-    { id: 'line', name: 'Line A/B', utilization: unitsPerHour / input.capacities.lineUnitsPerHour }
+    { id: 'warehouse', name: 'Kho xuất hàng', utilization: tripsPerHour / input.capacities.dockTripsPerHour },
+    { id: 'picking', name: 'Lấy và gom vật tư', utilization: tripsPerHour / input.capacities.pickingTripsPerHour },
+    { id: 'staging', name: 'Khu tập kết hàng', utilization: stagingPallets / input.capacities.stagingPallets },
+    { id: 'transport', name: 'Vận chuyển đến chuyền', utilization: transportUtilization },
+    { id: 'line', name: 'Dây chuyền A/B', utilization: unitsPerHour / input.capacities.lineUnitsPerHour }
   ].map((stage) => ({
     ...stage,
     level: stage.utilization > 1 ? 'CRITICAL' : stage.utilization > 0.9 ? 'WARNING' : 'NORMAL'
