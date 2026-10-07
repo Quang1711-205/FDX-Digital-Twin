@@ -1759,24 +1759,31 @@ export const App: React.FC = () => {
   const baselineEvaluation = scenariosWithRes.find(
     (option) => option.isBaseline,
   );
-  const demoRiskMaterial = M.find(
-    (material) => material.id === activeDemoScenario.risk.materialId,
-  );
-  const displayedRisk =
-    activeDemoScenarioId === "plan_change"
-      ? {
-          ...activeDemoScenario.risk,
-          delayMinutes: currentCalc.delay,
-          causes: [
-            `Kế hoạch ${Math.round(f * 100)}%: ${currentCalc.unitsPerHour.toFixed(0)} sản phẩm/giờ, cần ${currentCalc.trips.toFixed(0)} chuyến/giờ.`,
-            `AMR Kho–Staging: ${(currentCalc.upstreamUtilization * 100).toFixed(0)}% tải.`,
-            ...currentCalc.agvLines.map(
-              (line) =>
-                `AGV Line ${line.line}: ${(line.utilization * 100).toFixed(0)}% tải.`,
-            ),
-          ],
-        }
-      : activeDemoScenario.risk;
+  const packingBlocked = viewportCalc.packing.lines.filter(line => line.backlogPerHour > 0);
+  const transportBlocked = viewportCalc.agvLines.filter(line => line.utilization > 1);
+  const materialRisks = viewportCalc.items.filter(item => item.lvl > 0 && item.consumptionPerHour > 0);
+  const hasBottleneck = viewportCalc.util > 1 || packingBlocked.length > 0 || materialRisks.some(item => item.lvl === 2);
+  const hasRisk = hasBottleneck || viewportCalc.util > 0.9 || materialRisks.length > 0;
+  const affectedLines = new Set([
+    ...packingBlocked.map(line => line.line),
+    ...transportBlocked.map(line => line.line),
+    ...materialRisks.map(item => M.find(material => material.id === item.id)?.line).filter((line): line is string => Boolean(line)),
+  ]);
+  const displayedRisk = {
+    line: affectedLines.size ? [...affectedLines].sort().join(" & ") : "A & B",
+    title: hasBottleneck ? "Có điểm nghẽn cần xử lý" : hasRisk ? "Có nguy cơ điểm nghẽn" : "Vận hành trong năng lực dự báo",
+    delayMinutes: viewportCalc.delay,
+    confidence: activeDemoScenario.risk.confidence,
+    causes: [
+      `Kế hoạch đang xem: ${viewportCalc.unitsPerHour.toFixed(0)} sản phẩm/giờ, cần ${viewportCalc.trips.toFixed(0)} chuyến/giờ.`,
+      `AMR Kho–Staging: ${(viewportCalc.upstreamUtilization * 100).toFixed(0)}% tải${viewportCalc.upstreamUtilization > 1 ? " · Quá tải" : ""}.`,
+      ...viewportCalc.agvLines.map(line => `AGV Line ${line.line}: ${(line.utilization * 100).toFixed(0)}% tải${line.utilization > 1 ? " · Quá tải" : ""}.`),
+      ...viewportCalc.packing.lines.map(line => line.backlogPerHour > 0
+        ? `Đóng gói Line ${line.line}: thiếu nhân lực, hàng chờ tăng ${Math.ceil(line.backlogPerHour)} sản phẩm/giờ (${line.workers} người).`
+        : `Đóng gói Line ${line.line}: đủ năng lực (${line.workers} người).`),
+      ...materialRisks.map(item => `Vật tư ${item.name}: ${item.lvl === 2 ? "nguy cơ thiếu" : "cần chú ý"}.`),
+    ],
+  };
   const toggleLeftSection = (section: string) => {
     setExpandedLeftSection((current) => (current === section ? null : section));
   };
@@ -2773,10 +2780,10 @@ export const App: React.FC = () => {
         <aside className="side-panel side-panel-right">
           <div className="section-heading">
             <h2>Cảnh báo điểm nghẽn</h2>
-            <span className="insight-model">Kịch bản demo nạp sẵn</span>
+            <span className="insight-model">{previewScenario ? "Theo kịch bản đang xem" : "Theo đầu vào hiện tại"}</span>
           </div>
           <span
-            className={`line-badge ${TXT[displayedRisk.delayMinutes > 0 ? 1 : 0]}`}
+            className={`line-badge ${TXT[hasBottleneck ? 2 : hasRisk ? 1 : 0]}`}
           >
             Line {displayedRisk.line}
           </span>
@@ -2785,13 +2792,11 @@ export const App: React.FC = () => {
           </p> */}
           <section
             id="risk"
-            className={`insight-alert ${displayedRisk.delayMinutes > 0 ? "attention" : "safe"}`}
+            className={`insight-alert ${hasRisk ? "attention" : "safe"}`}
           >
             <h3>
               <UiIcon kind="box" />
-              {demoRiskMaterial
-                ? `Nguy cơ thiếu ${demoRiskMaterial.name} tại Line ${displayedRisk.line}`
-                : activeDemoScenario.name}
+              {displayedRisk.title}
             </h3>
             <dl className="insight-facts">
               <div>
@@ -2802,7 +2807,7 @@ export const App: React.FC = () => {
                 </dd>
               </div>
               <div>
-                <dt>Độ tin cậy</dt>
+                <dt>Độ tin cậy (giả định demo)</dt>
                 <dd>{displayedRisk.confidence}%</dd>
               </div>
             </dl>
