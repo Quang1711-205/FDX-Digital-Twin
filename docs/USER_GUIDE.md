@@ -71,6 +71,8 @@ Khi có kết quả mô phỏng, dùng **Đánh giá vòng mới** để tiếp 
 
 ## 7. Kết quả
 
+- Demo tự tạo phương án kết hợp AMR, AGV từng Line, nhân viên đóng gói và bổ sung tồn vật tư khi cần. Chỉ phương án xử lý đầy đủ điểm nghẽn dự báo được khuyến nghị và cho áp dụng; phương án cải thiện một phần vẫn xem thử được.
+- Nếu kho, lấy/gom hoặc chuyền vượt năng lực cố định, thêm xe/người đóng gói không đủ để giải quyết. Demo báo phương án còn nghẽn và không cho áp dụng. Chi phí mua vật tư bổ sung chưa được tính vào điểm nguồn lực.
 - Đây là mô phỏng theo giả định demo; áp dụng phương án không phát lệnh tới thiết bị nhà máy.
 - Giao trễ là dự báo, chưa phải thời gian giao hàng đo từ animation.
 - Điểm what-if đã xét vận chuyển vật tư và nhân viên đóng gói, chưa xét riêng năng lực AGV thành phẩm; tiếp tục quan sát hàng sau đóng gói dù điểm cao.

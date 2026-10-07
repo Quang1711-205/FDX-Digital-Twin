@@ -3,7 +3,7 @@ import type { OperationsSnapshot, RiskLevel } from "../types";
 export function resolveFleetScenario(
   amrCount: number,
   agvByLine: Record<string, number>,
-  scenario: { addAmr: number; addAgv: number; targetLine?: string },
+  scenario: { addAmr: number; addAgv: number; targetLine?: string; addAgvByLine?: Record<string, number> },
   snapshot: OperationsSnapshot,
 ) {
   const targetLine =
@@ -16,7 +16,9 @@ export function resolveFleetScenario(
     amrCount: amrCount + scenario.addAmr,
     agvByLine: {
       ...agvByLine,
-      [targetLine]: (agvByLine[targetLine] ?? 0) + scenario.addAgv,
+      ...Object.fromEntries(["A", "B"].map(line => [line,
+        (agvByLine[line] ?? 0) + (scenario.addAgvByLine ? scenario.addAgvByLine[line] ?? 0 : line === targetLine ? scenario.addAgv : 0),
+      ])),
     },
     targetLine,
   };
@@ -44,6 +46,29 @@ export function allocateAmrCounts(
     counts[line]++;
   }
   return counts;
+}
+
+export function sizeSupplyRecovery(snapshot: OperationsSnapshot, amrCount: number,
+  agvByLine: Record<string, number>, amrRate: number, agvRate: number, knee: number) {
+  const demand = Object.fromEntries(snapshot.agvLines.map(line => [line.line, line.demand]));
+  let requiredAmr = amrCount;
+  const upper = Math.max(amrCount, snapshot.amrLines.reduce((sum, line) => sum + Math.ceil(line.demand / (amrRate * knee)), 0) + 2);
+  if (Number.isFinite(upper)) for (; requiredAmr < upper; requiredAmr++) {
+    const counts = allocateAmrCounts(requiredAmr, demand);
+    if (snapshot.amrLines.every(line => line.demand <= (counts[line.line] ?? 0) * amrRate * knee + 1e-6)) break;
+  }
+  return { addAmr: requiredAmr - amrCount,
+    addAgvByLine: Object.fromEntries(snapshot.agvLines.map(line => [line.line,
+      agvRate > 0 ? Math.max(0, Math.ceil(line.demand / (agvRate * knee)) - (agvByLine[line.line] ?? 0)) : 0,
+    ])) };
+}
+
+export function isBottleneckResolved(snapshot: OperationsSnapshot,
+  packing: { utilization: number; backlogPerHour: number }, knee: number) {
+  return snapshot.materials.every(item => item.consumptionPerHour <= 0 || item.level === "NORMAL")
+    && snapshot.bottlenecks.every(stage => stage.utilization <= 1 + 1e-6)
+    && [...snapshot.amrLines, ...snapshot.agvLines].every(line => line.utilization <= knee + 1e-6)
+    && packing.utilization <= knee + 1e-6 && packing.backlogPerHour <= 1e-6;
 }
 
 export interface OperationsInputs {

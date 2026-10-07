@@ -2,7 +2,11 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import * as THREE from "three";
 import { CircleCheck, Info, TriangleAlert, UsersRound } from "lucide-react";
 import { createFinishedGoodsFlow } from "../three/FinishedGoodsFlow";
-import { buildPackingScenarios, calculatePacking, FINISHED_GOODS } from "../services/packing";
+import {
+  buildPackingScenarios,
+  calculatePacking,
+  FINISHED_GOODS,
+} from "../services/packing";
 import {
   createVehicle,
   animateVehicle,
@@ -32,6 +36,8 @@ import {
   calculateOperationsSnapshot,
   resolveFleetScenario,
   allocateAmrCounts,
+  sizeSupplyRecovery,
+  isBottleneckResolved,
 } from "../services/operationsEngine";
 
 const P = DEMO.production;
@@ -80,6 +86,8 @@ interface WhatIfOption {
   productionPercent?: number;
   minProductionPercent?: number;
   addPackingByLine?: Record<string, number>;
+  addAgvByLine?: Record<string, number>;
+  addStockByMaterial?: Record<string, number>;
 }
 
 interface RunMetrics {
@@ -121,8 +129,16 @@ interface RunRecord {
     agvCycleMinutes: number;
     loadsPerTrip: number;
   };
-  resourcesBefore?: { amr: number; agvByLine: Record<string, number>; packingWorkers?: Record<string, number> };
-  resourcesAfter?: { amr: number; agvByLine: Record<string, number>; packingWorkers?: Record<string, number> };
+  resourcesBefore?: {
+    amr: number;
+    agvByLine: Record<string, number>;
+    packingWorkers?: Record<string, number>;
+  };
+  resourcesAfter?: {
+    amr: number;
+    agvByLine: Record<string, number>;
+    packingWorkers?: Record<string, number>;
+  };
   demoScenarioId?: string;
   demoScenarioName?: string;
   actualResult?: {
@@ -171,7 +187,9 @@ function readRunHistory(): RunRecord[] {
 export const App: React.FC = () => {
   const [f, setF] = useState<number>(1);
   const [amr, setAmr] = useState<number>(RS.amr.available);
-  const [packingWorkers, setPackingWorkers] = useState<Record<string, number>>({ ...FINISHED_GOODS.workersByLine });
+  const [packingWorkers, setPackingWorkers] = useState<Record<string, number>>({
+    ...FINISHED_GOODS.workersByLine,
+  });
   const [agvByLine, setAgvByLine] = useState<Record<string, number>>({
     ...RS.agv.byLine,
   });
@@ -292,7 +310,9 @@ export const App: React.FC = () => {
   );
 
   const labelElementsRef = useRef<Record<string, HTMLDivElement | null>>({});
-  const finishedGoodsRef = useRef<ReturnType<typeof createFinishedGoodsFlow> | null>(null);
+  const finishedGoodsRef = useRef<ReturnType<
+    typeof createFinishedGoodsFlow
+  > | null>(null);
 
   // Build one typed operations snapshot for the current state or a what-if scenario.
   const calc = (
@@ -331,7 +351,11 @@ export const App: React.FC = () => {
     });
     return {
       ...snapshot,
-      packing: calculatePacking(snapshot.unitsPerHour, currentMix, currentPackingWorkers),
+      packing: calculatePacking(
+        snapshot.unitsPerHour,
+        currentMix,
+        currentPackingWorkers,
+      ),
       units: snapshot.unitsPerHour,
       items: snapshot.materials.map((item) => ({
         ...item,
@@ -382,11 +406,33 @@ export const App: React.FC = () => {
     DEMO.demoScenarios.find(
       (scenario) => scenario.id === activeDemoScenarioId,
     ) ?? DEFAULT_SCENARIO;
-  const SC = useMemo(() => buildPackingScenarios<WhatIfOption>(
-    activeDemoScenario.whatIfs, currentCalc.packing, Math.round(f * 100), OP.knee,
-  ), [activeDemoScenario.whatIfs, currentCalc.packing, f]);
+  const SC = useMemo(() => {
+    const options = buildPackingScenarios<WhatIfOption>(activeDemoScenario.whatIfs,
+      currentCalc.packing, Math.round(f * 100), OP.knee);
+    const supply = sizeSupplyRecovery(currentCalc, amr, agvByLine, 60 / amrCycleMinutes, 60 / agvCycleMinutes, OP.knee);
+    const addPackingByLine = Object.fromEntries(currentCalc.packing.lines.map(line => [line.line,
+      Math.max(0, Math.ceil(line.demand / (3600 / FINISHED_GOODS.packingSecondsPerUnit * OP.knee)) - line.workers),
+    ]));
+    const addAgv = Object.values(supply.addAgvByLine).reduce((sum, value) => sum + value, 0);
+    const people = Object.values(addPackingByLine).reduce((sum, value) => sum + value, 0);
+    const addStockByMaterial = Object.fromEntries(currentCalc.items.map(item => [item.id,
+      Math.max(0, Math.ceil(item.consumptionPerHour * (OP.amber + 1) / 60) - (materialStocks[item.id] ?? 0)),
+    ]));
+    const stockCount = Object.values(addStockByMaterial).reduce((sum, count) => sum + count, 0);
+    if (supply.addAmr || addAgv || people || stockCount) {
+      const name = [
+        ...(supply.addAmr ? [`+${supply.addAmr} AMR`] : []),
+        ...Object.entries(supply.addAgvByLine).filter(([, count]) => count > 0).map(([line, count]) => `+${count} AGV Line ${line}`),
+        ...Object.entries(addPackingByLine).filter(([, count]) => count > 0).map(([line, count]) => `+${count} nhân viên đóng gói Line ${line}`),
+        ...(stockCount ? ["Bổ sung vật tư"] : []),
+      ].join(" ");
+      options.push({ id: "complete_recovery", name, ...supply, addAgv, addPackingByLine, addStockByMaterial,
+        cost: (supply.addAmr + addAgv) * RS.agv.costPointsPerVehicle + people * FINISHED_GOODS.costPointsPerWorker });
+    }
+    return options;
+  }, [activeDemoScenario.whatIfs, currentCalc, f, amr, agvByLine, amrCycleMinutes, agvCycleMinutes]);
 
-  const scenariosWithRes = useMemo(() => {
+  const calculatedScenarios = useMemo(() => {
     return SC.filter(
       (scenario) => Math.round(f * 100) >= (scenario.minProductionPercent ?? 0),
     ).map((scenario, order) => {
@@ -396,9 +442,16 @@ export const App: React.FC = () => {
         scenario,
         currentCalc,
       );
-      const resources = { ...fleetResources, packingWorkers: Object.fromEntries(
-        ["A", "B"].map(line => [line, (packingWorkers[line] ?? 0) + (scenario.addPackingByLine?.[line] ?? 0)]),
-      ) };
+      const resources = {
+        ...fleetResources,
+        packingWorkers: Object.fromEntries(
+          ["A", "B"].map((line) => [
+            line,
+            (packingWorkers[line] ?? 0) +
+              (scenario.addPackingByLine?.[line] ?? 0),
+          ]),
+        ),
+      };
       const productionFactor =
         "productionPercent" in scenario && scenario.productionPercent
           ? scenario.productionPercent / 100
@@ -407,7 +460,12 @@ export const App: React.FC = () => {
         productionFactor,
         resources.amrCount,
         resources.agvByLine,
-        mix, bom, materialStocks, amrCycleMinutes, agvCycleMinutes, loadsPerTrip,
+        mix,
+        bom,
+        Object.fromEntries(M.map(item => [item.id, (materialStocks[item.id] ?? item.stock) + (scenario.addStockByMaterial?.[item.id] ?? 0)])),
+        amrCycleMinutes,
+        agvCycleMinutes,
+        loadsPerTrip,
         resources.packingWorkers,
       );
       // Recalculate every option from the same current plan, mix, BOM and stock.
@@ -434,7 +492,8 @@ export const App: React.FC = () => {
           ? 100
           : Math.max(0, Math.min(100, 100 * (1 - scenario.cost / maxCost)));
       const score = Math.round(
-        (delayScore * 0.55 + riskScore * 0.3 + costScore * 0.15) / Math.max(1, modeled.packing.utilization),
+        (delayScore * 0.55 + riskScore * 0.3 + costScore * 0.15) /
+          Math.max(1, modeled.packing.utilization),
       );
       const forecast = {
         capacity: modeled.cap,
@@ -452,7 +511,10 @@ export const App: React.FC = () => {
           !("productionPercent" in scenario) &&
           scenario.addAmr === 0 &&
           scenario.addAgv === 0 &&
-          !Object.values(scenario.addPackingByLine ?? {}).some(count => count > 0),
+          !Object.values(scenario.addStockByMaterial ?? {}).some(count => count > 0) &&
+          !Object.values(scenario.addPackingByLine ?? {}).some(
+            (count) => count > 0,
+          ),
         forecast,
         resources,
         res: modeled,
@@ -460,6 +522,7 @@ export const App: React.FC = () => {
         criticalMaterials,
         warningMaterials,
         score,
+        solvesBottleneck: isBottleneckResolved(modeled, modeled.packing, OP.knee),
       };
     });
   }, [
@@ -477,30 +540,61 @@ export const App: React.FC = () => {
     packingWorkers,
   ]);
 
+  // Keep the comparison tied to the inputs that produced the applied decision.
+  const appliedComparisonRef = useRef<{
+    scenarios: typeof calculatedScenarios;
+    selectedId: string;
+  } | null>(null);
+  const appliedComparison = executionLocked
+    ? appliedComparisonRef.current
+    : null;
+  const scenariosWithRes = appliedComparison?.scenarios ?? calculatedScenarios;
+
   // Recommend the highest-scoring option that keeps each AMR and AGV line within the modeled knee.
   const rec = useMemo(() => {
-    const feasible = scenariosWithRes.filter((scenario) =>
-      scenario.res.packing.utilization <= OP.knee + 1e-6 && [...scenario.res.amrLines, ...scenario.res.agvLines].every(
-        (line) => line.utilization <= OP.knee + 1e-6,
-      ),
+    const feasible = scenariosWithRes.filter(scenario => scenario.solvesBottleneck);
+    const resolved = scenariosWithRes.filter(
+      (scenario) =>
+        scenario.res.packing.backlogPerHour <= 1e-6 &&
+        [...scenario.res.amrLines, ...scenario.res.agvLines].every(
+          (line) => line.utilization <= 1 + 1e-6,
+        ),
     );
-    const resolved = scenariosWithRes.filter(scenario => scenario.res.packing.backlogPerHour <= 1e-6 &&
-      [...scenario.res.amrLines, ...scenario.res.agvLines].every(line => line.utilization <= 1 + 1e-6));
-    const candidates = feasible.length ? feasible : resolved.length ? resolved : scenariosWithRes;
+    const candidates = feasible.length
+      ? feasible
+      : resolved.length
+        ? resolved
+        : scenariosWithRes;
     return (
       [...candidates].sort(
-        (a, b) => ((!feasible.length && !resolved.length)
-          ? Math.max(a.res.util, a.res.packing.utilization) - Math.max(b.res.util, b.res.packing.utilization) : 0)
-          || b.score - a.score || a.cost - b.cost || a.order - b.order,
+        (a, b) =>
+          (!feasible.length && !resolved.length
+            ? Math.max(a.res.util, a.res.packing.utilization) -
+              Math.max(b.res.util, b.res.packing.utilization)
+            : 0) ||
+          b.score - a.score ||
+          a.cost - b.cost ||
+          a.order - b.order,
       )[0]?.id ?? SC[0].id
     );
   }, [scenariosWithRes, SC]);
 
-  const selectedSel = userSelected && scenariosWithRes.some(scenario => scenario.id === sel) ? sel : rec;
-  const rankedScenarios = useMemo(() => [...scenariosWithRes].sort((a, b) =>
-    Number(b.isBaseline) - Number(a.isBaseline) ||
-    b.score - a.score || a.cost - b.cost || a.order - b.order,
-  ), [scenariosWithRes]);
+  const selectedSel =
+    appliedComparison?.selectedId ??
+    (userSelected && scenariosWithRes.some((scenario) => scenario.id === sel)
+      ? sel
+      : rec);
+  const rankedScenarios = useMemo(
+    () =>
+      [...scenariosWithRes].sort(
+        (a, b) =>
+          Number(b.isBaseline) - Number(a.isBaseline) ||
+          b.score - a.score ||
+          a.cost - b.cost ||
+          a.order - b.order,
+      ),
+    [scenariosWithRes],
+  );
 
   // Preview is a presentation state; the committed inputs and history stay separate.
   const previewScenario = scenariosWithRes.find(
@@ -517,7 +611,8 @@ export const App: React.FC = () => {
       snapshot: previewScenario?.res ?? currentCalc,
       amrCount: previewScenario?.resources.amrCount ?? amr,
       agvByLine: previewScenario?.resources.agvByLine ?? agvByLine,
-      packingWorkers: previewScenario?.resources.packingWorkers ?? packingWorkers,
+      packingWorkers:
+        previewScenario?.resources.packingWorkers ?? packingWorkers,
       amrCycleMinutes,
       agvCycleMinutes,
       loadsPerTrip,
@@ -630,6 +725,11 @@ export const App: React.FC = () => {
         );
     if (sourceInventory) {
       const inventory = stagingInventoryRef.current;
+      state.snapshot.items.forEach(item => {
+        const added = Math.max(0, item.stock - (materialStocks[item.id] ?? item.stock));
+        inventory.warehouseStock[item.id] += added;
+        inventory.warehouseReplenished[item.id] += added;
+      });
       Object.keys(inventory.inTransit).forEach((id) => {
         inventory.warehouseStock[id] += inventory.inTransit[id];
         inventory.inTransit[id] = 0;
@@ -641,7 +741,9 @@ export const App: React.FC = () => {
   const savedMainSceneRef = useRef<{
     inventory: StagingInventory;
     fleet: Vehicle[];
-    finishedGoods?: ReturnType<ReturnType<typeof createFinishedGoodsFlow>["saveState"]>;
+    finishedGoods?: ReturnType<
+      ReturnType<typeof createFinishedGoodsFlow>["saveState"]
+    >;
   } | null>(null);
   // Plan/forecast updates are live; only a different situation resets the scene.
   const sceneConfigKey = activeDemoScenarioId;
@@ -655,7 +757,8 @@ export const App: React.FC = () => {
     stagingInventoryRef.current = saved.inventory;
     amrsRef.current = saved.fleet;
     saved.fleet.forEach((vehicle) => sceneRef.current!.add(vehicle.m));
-    if (saved.finishedGoods) finishedGoodsRef.current?.restoreState(saved.finishedGoods);
+    if (saved.finishedGoods)
+      finishedGoodsRef.current?.restoreState(saved.finishedGoods);
     savedMainSceneRef.current = null;
   };
   useEffect(() => {
@@ -670,7 +773,10 @@ export const App: React.FC = () => {
         executionLockRef.current = false;
         setExecutionLocked(false);
       }
-    } else if (previewScenarioId && previousPreviewRef.current !== previewScenarioId) {
+    } else if (
+      previewScenarioId &&
+      previousPreviewRef.current !== previewScenarioId
+    ) {
       if (!savedMainSceneRef.current && stagingInventoryRef.current) {
         savedMainSceneRef.current = {
           inventory: stagingInventoryRef.current,
@@ -680,7 +786,10 @@ export const App: React.FC = () => {
         amrsRef.current.forEach((vehicle) => vehicle.m.removeFromParent());
         amrsRef.current = [];
       }
-      if (savedMainSceneRef.current?.finishedGoods) finishedGoodsRef.current?.restoreState(savedMainSceneRef.current.finishedGoods);
+      if (savedMainSceneRef.current?.finishedGoods)
+        finishedGoodsRef.current?.restoreState(
+          savedMainSceneRef.current.finishedGoods,
+        );
       resetVisualStaging(viewportState, savedMainSceneRef.current?.inventory);
     } else if (!previewScenarioId && previousPreviewRef.current) {
       restoreMainScene();
@@ -944,8 +1053,10 @@ export const App: React.FC = () => {
     };
     cv.onpointermove = (e: PointerEvent) => {
       const rect = cv.getBoundingClientRect();
-      hoverPointer.set(((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top) / rect.height) * 2 + 1);
+      hoverPointer.set(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1,
+      );
       pointerInside = true;
       if (!drag) return;
       thRef.current -= (e.clientX - lx) * 0.006;
@@ -957,7 +1068,9 @@ export const App: React.FC = () => {
       ly = e.clientY;
       setCam();
     };
-    cv.onpointerleave = () => { pointerInside = false; };
+    cv.onpointerleave = () => {
+      pointerInside = false;
+    };
     cv.onwheel = (e: WheelEvent) => {
       e.preventDefault();
       distRef.current = Math.max(
@@ -999,19 +1112,30 @@ export const App: React.FC = () => {
       const w = cv.clientWidth;
       const h = cv.clientHeight;
       let hovered: THREE.Object3D | null = null;
-      const hoverTargets = [...amrsRef.current.map(vehicle => vehicle.m), ...finishedGoods.hoverTargets];
+      const hoverTargets = [
+        ...amrsRef.current.map((vehicle) => vehicle.m),
+        ...finishedGoods.hoverTargets,
+      ];
       if (pointerInside && !drag) {
         S.updateMatrixWorld(true);
         hoverRaycaster.setFromCamera(hoverPointer, camRef.current!);
-        const hit = hoverRaycaster.intersectObjects(hoverTargets, true).find(item => item.object instanceof THREE.Mesh && item.object.visible);
+        const hit = hoverRaycaster
+          .intersectObjects(hoverTargets, true)
+          .find(
+            (item) => item.object instanceof THREE.Mesh && item.object.visible,
+          );
         let object = hit?.object ?? null;
-        while (object && !hoverTargets.includes(object as THREE.Group)) object = object.parent;
+        while (object && !hoverTargets.includes(object as THREE.Group))
+          object = object.parent;
         hovered = object;
       }
       hoverTooltip.style.display = hovered?.userData.hoverLabel ? "" : "none";
       if (hovered?.userData.hoverLabel) {
         hoverTooltip.textContent = hovered.userData.hoverLabel;
-        const anchor = hovered.position.clone().add(new THREE.Vector3(0, 2.6, 0)).project(camRef.current!);
+        const anchor = hovered.position
+          .clone()
+          .add(new THREE.Vector3(0, 2.6, 0))
+          .project(camRef.current!);
         hoverTooltip.style.left = `${((anchor.x + 1) / 2) * w}px`;
         hoverTooltip.style.top = `${((1 - anchor.y) / 2) * h}px`;
       }
@@ -1021,7 +1145,11 @@ export const App: React.FC = () => {
         if (el) {
           const v = fl.v.clone().project(camRef.current!);
           el.style.display =
-            (!/^l[1-6]$/.test(fl.id) && !fl.id.startsWith("finished")) || v.z < -1 || v.z > 1 || Math.abs(v.x) > 1.15 || Math.abs(v.y) > 1.15
+            (!/^l[1-6]$/.test(fl.id) && !fl.id.startsWith("finished")) ||
+            v.z < -1 ||
+            v.z > 1 ||
+            Math.abs(v.x) > 1.15 ||
+            Math.abs(v.y) > 1.15
               ? "none"
               : "";
           el.style.left = `${((v.x + 1) / 2) * w}px`;
@@ -1048,7 +1176,11 @@ export const App: React.FC = () => {
           .add(new THREE.Vector3(0, 1.8, 0));
         const v = anchor.project(camRef.current!);
         el.style.display =
-          hovered !== vehicle.m || v.z < -1 || v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1
+          hovered !== vehicle.m ||
+          v.z < -1 ||
+          v.z > 1 ||
+          Math.abs(v.x) > 1 ||
+          Math.abs(v.y) > 1
             ? "none"
             : "";
         el.style.left = `${((v.x + 1) / 2) * w}px`;
@@ -1342,18 +1474,35 @@ export const App: React.FC = () => {
         }
         p.position.x = p.userData.x;
       });
-      const outboundSpeeds = Object.fromEntries(["A", "B"].map(line => {
-        const supplyAgv = amrsRef.current.find(vehicle => vehicle.kind === "AGV" && vehicle.m.userData.line === line);
-        return [line, supplyAgv
-          ? supplyAgv.totalLength / Math.max(0.1, supplyAgv.cycleMinutes - supplyAgv.handlingSeconds * 2 / 60)
-          : FINISHED_GOODS.agvSceneSpeed];
-      }));
+      const outboundSpeeds = Object.fromEntries(
+        ["A", "B"].map((line) => {
+          const supplyAgv = amrsRef.current.find(
+            (vehicle) =>
+              vehicle.kind === "AGV" && vehicle.m.userData.line === line,
+          );
+          return [
+            line,
+            supplyAgv
+              ? supplyAgv.totalLength /
+                Math.max(
+                  0.1,
+                  supplyAgv.cycleMinutes - (supplyAgv.handlingSeconds * 2) / 60,
+                )
+              : FINISHED_GOODS.agvSceneSpeed,
+          ];
+        }),
+      );
       finishedGoods.update(animationDt, simulationDt, outboundSpeeds);
-      const packingLabel = labelElementsRef.current["finishedPacking"]?.querySelector("small");
+      const packingLabel =
+        labelElementsRef.current["finishedPacking"]?.querySelector("small");
       if (packingLabel) {
         const status = finishedGoods.getStatus();
-        packingLabel.textContent = status.map(line => `${line.line}: ${line.raw} chờ · ${line.workers} NV`).join(" / ");
-        packingLabel.style.color = status.some(line => line.raw > 0) ? "#f59e0b" : "#5eead4";
+        packingLabel.textContent = status
+          .map((line) => `${line.line}: ${line.raw} chờ · ${line.workers} NV`)
+          .join(" / ");
+        packingLabel.style.color = status.some((line) => line.raw > 0)
+          ? "#f59e0b"
+          : "#5eead4";
       }
 
       R.render(S, cam);
@@ -1520,12 +1669,16 @@ export const App: React.FC = () => {
   const handleApprove = () => {
     if (executionLockRef.current) return;
     const s = scenariosWithRes.find((x) => x.id === selectedSel);
-    if (!s) return;
+    if (!s || !s.solvesBottleneck) return;
     setPreviewScenarioId(null);
     const before =
       scenariosWithRes.find((option) => option.isBaseline)?.res ?? currentCalc;
     const appliedFactor = s.res.unitsPerHour / P.unitsPerHour;
     const after = s.res;
+    appliedComparisonRef.current = {
+      scenarios: scenariosWithRes,
+      selectedId: s.id,
+    };
     restoreMainScene();
     resetVisualStaging({
       snapshot: after,
@@ -1568,7 +1721,11 @@ export const App: React.FC = () => {
         agvCycleMinutes,
         loadsPerTrip,
       },
-      resourcesBefore: { amr, agvByLine: { ...agvByLine }, packingWorkers: { ...packingWorkers } },
+      resourcesBefore: {
+        amr,
+        agvByLine: { ...agvByLine },
+        packingWorkers: { ...packingWorkers },
+      },
       resourcesAfter: {
         amr: s.resources.amrCount,
         agvByLine: { ...s.resources.agvByLine },
@@ -1583,6 +1740,7 @@ export const App: React.FC = () => {
     setF(appliedFactor);
     setAmr(s.resources.amrCount);
     setPackingWorkers(s.resources.packingWorkers);
+    setMaterialStocks(Object.fromEntries(s.res.items.map(item => [item.id, item.stock])));
     setAgvByLine(s.resources.agvByLine);
     setLiveMetrics({
       productionPerHour: 0,
@@ -1714,7 +1872,10 @@ export const App: React.FC = () => {
   // Helper calculation variables for UI rendering
   const c = currentCalc;
   const viewportCalc = viewportState.snapshot;
-  const displayedOperators = Object.values(viewportState.packingWorkers).reduce((sum, count) => sum + count, 0);
+  const displayedOperators = Object.values(viewportState.packingWorkers).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
   const liveMaterials = viewportCalc.items.map((item) => {
     const stock = liveMetrics.lineSideByMaterial[item.id] ?? 0;
     const eff =
@@ -1759,31 +1920,74 @@ export const App: React.FC = () => {
   const baselineEvaluation = scenariosWithRes.find(
     (option) => option.isBaseline,
   );
-  const packingBlocked = viewportCalc.packing.lines.filter(line => line.backlogPerHour > 0);
-  const transportBlocked = viewportCalc.agvLines.filter(line => line.utilization > 1);
-  const materialRisks = viewportCalc.items.filter(item => item.lvl > 0 && item.consumptionPerHour > 0);
-  const hasBottleneck = viewportCalc.util > 1 || packingBlocked.length > 0 || materialRisks.some(item => item.lvl === 2);
-  const hasRisk = hasBottleneck || viewportCalc.util > 0.9 || materialRisks.length > 0;
-  const affectedLines = new Set([
-    ...packingBlocked.map(line => line.line),
-    ...transportBlocked.map(line => line.line),
-    ...materialRisks.map(item => M.find(material => material.id === item.id)?.line).filter((line): line is string => Boolean(line)),
-  ]);
-  const displayedRisk = {
-    line: affectedLines.size ? [...affectedLines].sort().join(" & ") : "A & B",
-    title: hasBottleneck ? "Có điểm nghẽn cần xử lý" : hasRisk ? "Có nguy cơ điểm nghẽn" : "Vận hành trong năng lực dự báo",
-    delayMinutes: viewportCalc.delay,
-    confidence: activeDemoScenario.risk.confidence,
-    causes: [
-      `Kế hoạch đang xem: ${viewportCalc.unitsPerHour.toFixed(0)} sản phẩm/giờ, cần ${viewportCalc.trips.toFixed(0)} chuyến/giờ.`,
-      `AMR Kho–Staging: ${(viewportCalc.upstreamUtilization * 100).toFixed(0)}% tải${viewportCalc.upstreamUtilization > 1 ? " · Quá tải" : ""}.`,
-      ...viewportCalc.agvLines.map(line => `AGV Line ${line.line}: ${(line.utilization * 100).toFixed(0)}% tải${line.utilization > 1 ? " · Quá tải" : ""}.`),
-      ...viewportCalc.packing.lines.map(line => line.backlogPerHour > 0
-        ? `Đóng gói Line ${line.line}: thiếu nhân lực, hàng chờ tăng ${Math.ceil(line.backlogPerHour)} sản phẩm/giờ (${line.workers} người).`
-        : `Đóng gói Line ${line.line}: đủ năng lực (${line.workers} người).`),
-      ...materialRisks.map(item => `Vật tư ${item.name}: ${item.lvl === 2 ? "nguy cơ thiếu" : "cần chú ý"}.`),
-    ],
-  };
+  const materialRisks = viewportCalc.items.filter(
+    (item) => item.lvl > 0 && item.consumptionPerHour > 0,
+  );
+  const materialLine = (id: string) =>
+    M.find((material) => material.id === id)?.line;
+  const materialMessage = (item: (typeof materialRisks)[number]) =>
+    `Vật tư ${item.name}: ${item.lvl === 2 ? "nguy cơ thiếu" : "cần chú ý"}.`;
+  const lineRisks = ["A", "B"].map((line) => {
+    const agv = viewportCalc.agvLines.find((item) => item.line === line);
+    const packing = viewportCalc.packing.lines.find(
+      (item) => item.line === line,
+    );
+    const materials = materialRisks.filter(
+      (item) => materialLine(item.id) === line,
+    );
+    const blocked =
+      (agv?.utilization ?? 0) > 1 ||
+      (packing?.backlogPerHour ?? 0) > 0 ||
+      materials.some((item) => item.lvl === 2);
+    const warning =
+      blocked || (agv?.utilization ?? 0) > 0.9 || materials.length > 0;
+    return {
+      line,
+      blocked,
+      warning,
+      causes: [
+        ...(agv && agv.utilization > 0.9
+          ? [
+              `AGV: ${(agv.utilization * 100).toFixed(0)}% tải · ${agv.utilization > 1 ? "Quá tải" : "Gần hết công suất"}.`,
+            ]
+          : []),
+        ...(packing && packing.backlogPerHour > 0
+          ? [
+              `Đóng gói: thiếu nhân lực (${packing.workers} người), nhu cầu ${Math.ceil(packing.demand)} sản phẩm/giờ; hàng chờ tăng ${Math.ceil(packing.backlogPerHour)} sản phẩm/giờ.`,
+            ]
+          : []),
+        ...materials.map(materialMessage),
+      ],
+    };
+  });
+  const sharedMaterials = materialRisks.filter(
+    (item) => !["A", "B"].includes(materialLine(item.id) ?? ""),
+  );
+  const sharedStages = viewportCalc.bottlenecks.filter(
+    (stage) =>
+      !["picking", "transport"].includes(stage.id) && stage.utilization > 0.9,
+  );
+  const sharedCauses = [
+    ...(viewportCalc.upstreamUtilization > 0.9
+      ? [
+          `AMR Kho–Staging: ${(viewportCalc.upstreamUtilization * 100).toFixed(0)}% tải · ${viewportCalc.upstreamUtilization > 1 ? "Quá tải" : "Gần hết công suất"}.`,
+        ]
+      : []),
+    ...sharedMaterials.map(materialMessage),
+    ...sharedStages.map(
+      (stage) =>
+        `${stage.name}: ${(stage.utilization * 100).toFixed(0)}% tải · ${stage.utilization > 1 ? "Quá tải" : "Gần hết công suất"}.`,
+    ),
+  ];
+  const sharedBlocked =
+    viewportCalc.upstreamUtilization > 1 ||
+    sharedMaterials.some((item) => item.lvl === 2) ||
+    sharedStages.some((stage) => stage.utilization > 1);
+  const hasBottleneck = sharedBlocked || lineRisks.some((line) => line.blocked);
+  const hasRisk =
+    hasBottleneck ||
+    sharedCauses.length > 0 ||
+    lineRisks.some((line) => line.warning);
   const toggleLeftSection = (section: string) => {
     setExpandedLeftSection((current) => (current === section ? null : section));
   };
@@ -2399,11 +2603,18 @@ export const App: React.FC = () => {
               ["finishedPacking", "ĐÓNG GÓI THÀNH PHẨM"],
               ["finishedWarehouse", "KHO THÀNH PHẨM"],
             ].map(([id, title]) => (
-              <div key={id} className="lb z stage-label"
+              <div
+                key={id}
+                className="lb z stage-label"
                 style={{ borderColor: "#5eead4" }}
-                ref={(el) => { labelElementsRef.current[id] = el; }}>
+                ref={(el) => {
+                  labelElementsRef.current[id] = el;
+                }}
+              >
                 {title}
-                {id === "finishedPacking" && <small style={{ color: "#5eead4" }}>Hàng chờ đóng gói</small>}
+                {id === "finishedPacking" && (
+                  <small style={{ color: "#5eead4" }}>Hàng chờ đóng gói</small>
+                )}
               </div>
             ))}
             <div
@@ -2579,7 +2790,12 @@ export const App: React.FC = () => {
                 </h2>
               </div>
               <span className="comparison-context">
-                <p>Kế hoạch {pct}% · chọn kịch bản để xem mô phỏng và dự báo</p>
+                <p>
+                  Kế hoạch {pct}% ·{" "}
+                  {appliedComparison
+                    ? "so sánh tại thời điểm áp dụng"
+                    : "chọn kịch bản để xem mô phỏng và dự báo"}
+                </p>
               </span>
             </div>
             <div className="scenario-table-scroll">
@@ -2590,7 +2806,7 @@ export const App: React.FC = () => {
                     <th scope="col">Năng lực</th>
                     <th scope="col">Mức tải cao nhất</th>
                     <th scope="col">Sản lượng</th>
-                    <th scope="col">Tải đóng gói</th>
+                    <th scope="col">Khu vực đóng gói</th>
                     <th scope="col">Chờ đóng gói/giờ</th>
                     <th scope="col">Giao trễ (phút)</th>
                     <th scope="col">Chi phí nguồn lực</th>
@@ -2605,6 +2821,7 @@ export const App: React.FC = () => {
                         <th scope="row">
                           <button
                             onClick={() => handleSelectScenario(item.id)}
+                            disabled={executionLocked}
                             aria-pressed={item.id === selectedSel}
                           >
                             <UiIcon
@@ -2618,7 +2835,7 @@ export const App: React.FC = () => {
                             />
                             <span>
                               {item.name}
-                              {item.id === rec && (
+                              {item.id === rec && item.solvesBottleneck && !appliedComparison && (
                                 <small className="g">Khuyến nghị</small>
                               )}
                             </span>
@@ -2629,10 +2846,18 @@ export const App: React.FC = () => {
                           {(item.res.util * 100).toFixed(0)}%
                         </td>
                         <td>{item.res.units.toFixed(0)}</td>
-                        <td className={item.res.packing.utilization > 1 ? "r" : "g"}>
+                        <td
+                          className={
+                            item.res.packing.utilization > 1 ? "r" : "g"
+                          }
+                        >
                           {(item.res.packing.utilization * 100).toFixed(0)}%
                         </td>
-                        <td className={item.res.packing.backlogPerHour > 0 ? "r" : "g"}>
+                        <td
+                          className={
+                            item.res.packing.backlogPerHour > 0 ? "r" : "g"
+                          }
+                        >
                           {item.res.packing.backlogPerHour.toFixed(0)}
                         </td>
                         <td className={item.res.delay > 0 ? "r" : "g"}>
@@ -2642,7 +2867,9 @@ export const App: React.FC = () => {
                         <td>
                           <b>{item.score}</b>
                           {item.id === selectedSel && (
-                            <small className="table-selection">Đang chọn</small>
+                            <small className="table-selection">
+                              {appliedComparison ? "Đã áp dụng" : "Đang chọn"}
+                            </small>
                           )}
                         </td>
                         <td>
@@ -2661,7 +2888,8 @@ export const App: React.FC = () => {
             </div>
             <div className="comparison-footer">
               <span>
-                Đang chọn: <b>{selectedEvaluation?.name}</b>
+                {appliedComparison ? "Đã áp dụng: " : "Đang chọn: "}
+                <b>{selectedEvaluation?.name}</b>
               </span>
               <span>
                 Ưu tiên phương án trong ngưỡng tải AMR/AGV · sau đó so sánh điểm
@@ -2733,12 +2961,26 @@ export const App: React.FC = () => {
                             </tr>
                           );
                         })}
-                        {["A", "B"].map(line => (
+                        {["A", "B"].map((line) => (
                           <tr key={`packing-${line}`}>
                             <th>Nhân viên đóng gói Line {line}</th>
                             <td>{packingWorkers[line]}</td>
-                            <td>{scenarioDetails.resources.packingWorkers[line]}</td>
-                            <td>+{scenarioDetails.resources.packingWorkers[line] - packingWorkers[line]}</td>
+                            <td>
+                              {scenarioDetails.resources.packingWorkers[line]}
+                            </td>
+                            <td>
+                              +
+                              {scenarioDetails.resources.packingWorkers[line] -
+                                packingWorkers[line]}
+                            </td>
+                          </tr>
+                        ))}
+                        {Object.entries(scenarioDetails.addStockByMaterial ?? {}).filter(([, count]) => count > 0).map(([id, count]) => (
+                          <tr key={`stock-${id}`}>
+                            <th>Tồn kho {M.find(item => item.id === id)?.name ?? id} (pcs)</th>
+                            <td>{scenarioDetails.res.items.find(item => item.id === id)!.stock - count}</td>
+                            <td>{scenarioDetails.res.items.find(item => item.id === id)!.stock}</td>
+                            <td>+{count}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -2780,99 +3022,260 @@ export const App: React.FC = () => {
         <aside className="side-panel side-panel-right">
           <div className="section-heading">
             <h2>Cảnh báo điểm nghẽn</h2>
-            <span className="insight-model">{previewScenario ? "Theo kịch bản đang xem" : "Theo đầu vào hiện tại"}</span>
+            <span className="insight-model">
+              {previewScenario
+                ? "Theo kịch bản đang xem"
+                : "Theo đầu vào hiện tại"}
+            </span>
           </div>
-          <span
-            className={`line-badge ${TXT[hasBottleneck ? 2 : hasRisk ? 1 : 0]}`}
-          >
-            Line {displayedRisk.line}
-          </span>
           {/* <p className="section-description">
             {activeDemoScenario.description} Số forecast là giả định demo.
           </p> */}
           <section
             id="risk"
-            className={`insight-alert ${hasRisk ? "attention" : "safe"}`}
+            className={`insight-alert ${hasBottleneck ? "attention" : hasRisk ? "notice" : "safe"}`}
           >
             <h3>
               <UiIcon kind="box" />
-              {displayedRisk.title}
+              {hasBottleneck
+                ? "Có điểm nghẽn cần xử lý"
+                : hasRisk
+                  ? "Có chú ý vận hành"
+                  : "Vận hành trong năng lực dự báo"}
             </h3>
-            <dl className="insight-facts">
+            <div className="risk-summary-metrics">
               <div>
-                <dt>Thời gian giao trễ dự báo</dt>
-                <dd>
-                  {Math.max(0, Math.round(displayedRisk.delayMinutes))} phút (dự
-                  báo)
-                </dd>
+                <span>Giao trễ dự báo</span>
+                <strong>
+                  {Math.max(0, Math.round(viewportCalc.delay))}
+                  <small> phút</small>
+                </strong>
               </div>
               <div>
-                <dt>Độ tin cậy (giả định demo)</dt>
-                <dd>{displayedRisk.confidence}%</dd>
+                <span>Line cần chú ý</span>
+                <strong>
+                  {lineRisks.filter((line) => line.warning).length}
+                  <small> / 2</small>
+                </strong>
               </div>
-            </dl>
-            <h4>Cơ sở dự báo</h4>
-            <ul>
-              {displayedRisk.causes.map((cause) => (
-                <li key={cause}>{cause}</li>
-              ))}
-            </ul>
+              <div className="packing-info">
+                <button
+                  type="button"
+                  className="packing-info-button"
+                  aria-label="Chi tiết cảnh báo chung"
+                  aria-describedby="shared-risk-info"
+                >
+                  <Info size={16} />
+                </button>
+                <div
+                  id="shared-risk-info"
+                  role="tooltip"
+                  className="packing-info-tooltip"
+                >
+                  <strong>Thông tin & cảnh báo chung</strong>
+                  <div className="risk-tooltip-inputs">
+                    <span>Sản lượng<b>{viewportCalc.unitsPerHour.toFixed(0)} sp/giờ</b></span>
+                    <span>Nhu cầu vận chuyển<b>{viewportCalc.trips.toFixed(0)} chuyến/giờ</b></span>
+                  </div>
+                  <span className="risk-tooltip-confidence">
+                    Độ tin cậy giả định demo:{" "}
+                    {activeDemoScenario.risk.confidence}%.
+                  </span>
+                  {sharedCauses.map((cause) => (
+                    <div key={cause} className="risk-tooltip-cause"><TriangleAlert size={13} aria-hidden="true" /><span>{cause.replace(/^\d+\.\s*/, "")}</span></div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            {sharedCauses.length > 0 && (
+              <span className={`packing-status-badge ${sharedBlocked ? "is-blocked" : "is-notice"}`}>
+                <TriangleAlert size={14} />
+                {sharedCauses.length} {sharedBlocked ? "cảnh báo chung" : "chú ý vận hành"}
+              </span>
+            )}
           </section>
           <section id="rec" className="insight-recommendation">
-            <section className="packing-status" aria-labelledby="packing-status-title">
-              <div className="packing-status-heading">
-                <h3 id="packing-status-title">Nhân lực đóng gói</h3>
-                <span className={`packing-status-badge ${viewportCalc.packing.backlogPerHour > 0 ? "is-blocked" : "is-clear"}`}>
-                  {viewportCalc.packing.backlogPerHour > 0
-                    ? <><TriangleAlert size={14} aria-hidden="true" /> Có điểm nghẽn</>
-                    : <><CircleCheck size={14} aria-hidden="true" /> Không có điểm nghẽn</>}
-                </span>
-              </div>
-              {viewportCalc.packing.lines.map(line => {
-                const blocked = line.backlogPerHour > 0;
-                const loadText = Number.isFinite(line.utilization) ? `${(line.utilization * 100).toFixed(0)}%` : "Không có nhân viên";
+            <section className="packing-status" aria-label="Line A/B">
+              {viewportCalc.packing.lines.map((line) => {
+                const risk = lineRisks.find((item) => item.line === line.line)!;
+                const blocked = risk.blocked;
+                const agvLoad =
+                  viewportCalc.agvLines.find((item) => item.line === line.line)
+                    ?.utilization ?? 0;
+                const materialCount = materialRisks.filter(
+                  (item) => materialLine(item.id) === line.line,
+                ).length;
+                const packingScale = Math.max(1, line.demand, line.capacity);
+                const processedWidth =
+                  (Math.min(line.demand, line.capacity) / packingScale) * 100;
+                const overflowWidth =
+                  (line.backlogPerHour / packingScale) * 100;
                 return (
-                  <article key={line.line} className={`packing-line-card ${blocked ? "is-blocked" : "is-clear"}`}>
+                  <article
+                    key={line.line}
+                    className={`packing-line-card ${risk.warning ? "is-blocked" : "is-clear"}`}
+                  >
                     <div className="packing-line-heading">
                       <strong>Line {line.line}</strong>
                       <div className="packing-line-actions">
-                        <span><UsersRound size={15} aria-hidden="true" /> {line.workers} nhân viên</span>
+                        <span>
+                          <UsersRound size={15} aria-hidden="true" />{" "}
+                          {line.workers} nhân viên
+                        </span>
                         <div className="packing-info">
-                          <button type="button" className="packing-info-button"
-                            aria-label={`Chi tiết tình trạng đóng gói Line ${line.line}`}
-                            aria-describedby={`packing-info-${line.line}`}>
+                          <button
+                            type="button"
+                            className="packing-info-button"
+                            aria-label={`Chi tiết cảnh báo Line ${line.line}`}
+                            aria-describedby={`packing-info-${line.line}`}
+                          >
                             <Info size={16} aria-hidden="true" />
                           </button>
-                          <div id={`packing-info-${line.line}`} role="tooltip" className="packing-info-tooltip">
-                            <strong>{blocked ? "Thiếu nhân lực đóng gói" : "Đủ nhân lực đóng gói"}</strong>
-                            <span>{blocked
-                              ? `Hàng chờ tăng ${line.backlogPerHour.toFixed(0)} sản phẩm/giờ`
-                              : line.utilization >= 1 - 1e-6 ? "Đáp ứng kế hoạch, đang dùng hết công suất" : "Đáp ứng kế hoạch, không phát sinh tồn do thiếu nhân lực"}</span>
+                          <div
+                            id={`packing-info-${line.line}`}
+                            role="tooltip"
+                            className="packing-info-tooltip"
+                          >
+                            <strong>
+                              {blocked
+                                ? "Có điểm nghẽn"
+                                : risk.warning
+                                  ? "Cần chú ý"
+                                  : "Không có điểm nghẽn"}
+                            </strong>
+                            {risk.causes.length > 0 ? (
+                              risk.causes.map((cause) => (
+                                <span key={cause}>{cause}</span>
+                              ))
+                            ) : (
+                              <span>
+                                AGV và đóng gói trong năng lực dự báo; không có
+                                cảnh báo vật tư.
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                     </div>
-                    <div className="packing-line-load">
-                      <span>Mức sử dụng nhân lực</span>
-                      <strong>{loadText}</strong>
+                    <span
+                      className={`packing-status-badge ${risk.warning ? "is-blocked" : "is-clear"}`}
+                    >
+                      {risk.warning ? (
+                        <TriangleAlert size={14} aria-hidden="true" />
+                      ) : (
+                        <CircleCheck size={14} aria-hidden="true" />
+                      )}
+                      {blocked
+                        ? "Có điểm nghẽn"
+                        : risk.warning
+                          ? "Cần chú ý"
+                          : "Không có điểm nghẽn"}
+                    </span>
+                    <div className="line-risk-indicators">
+                      <div
+                        className={
+                          agvLoad > 1
+                            ? "is-danger"
+                            : agvLoad > 0.9
+                              ? "is-warning"
+                              : "is-normal"
+                        }
+                      >
+                        <span>AGV</span>
+                        <strong>
+                          {Number.isFinite(agvLoad)
+                            ? `${Math.round(agvLoad * 100)}%`
+                            : "Không có xe"}
+                        </strong>
+                      </div>
+                      <div
+                        className={
+                          materialCount > 0 ? "is-warning" : "is-normal"
+                        }
+                      >
+                        <span>Vật tư</span>
+                        <strong>
+                          {materialCount > 0
+                            ? `${materialCount} cần chú ý`
+                            : "Ổn định"}
+                        </strong>
+                      </div>
+                      <div
+                        className={
+                          line.backlogPerHour > 0 ? "is-danger" : "is-normal"
+                        }
+                      >
+                        <span>Chờ đóng gói</span>
+                        <strong>
+                          +{Math.ceil(line.backlogPerHour)}
+                          <small> sp/h</small>
+                        </strong>
+                      </div>
                     </div>
-                    <div className="packing-load-track" role="progressbar" aria-label={`Tải đóng gói Line ${line.line}`}
-                      aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.max(0, line.utilization * 100))}
-                      aria-valuetext={loadText}>
-                      <span style={{ width: `${Math.min(100, Math.max(0, line.utilization * 100))}%` }} />
-                    </div>
-                    <div className="packing-line-capacity">
-                      <span>Nhu cầu <b>{line.demand.toFixed(0)}</b></span>
-                      <span>Năng lực <b>{line.capacity.toFixed(0)}</b></span>
-                      <small>sản phẩm/giờ</small>
+                    <div className="packing-comparison">
+                      <div className="packing-comparison-numbers">
+                        <span>
+                          Chờ đóng gói<strong>{line.demand.toFixed(0)}</strong>
+                        </span>
+                        <span>
+                          Đã đóng gói<strong>{line.capacity.toFixed(0)}</strong>
+                        </span>
+                        <small>sp/giờ</small>
+                      </div>
+                      <div
+                        className="packing-comparison-track"
+                        role="img"
+                        aria-label={`Line ${line.line}: Chờ đóng gói<s ${line.demand.toFixed(0)}, năng lực ${line.capacity.toFixed(0)}, vượt năng lực ${line.backlogPerHour.toFixed(0)} sản phẩm mỗi giờ`}
+                      >
+                        <span
+                          className="packing-processed"
+                          style={{ width: `${processedWidth}%` }}
+                        />
+                        <span
+                          className="packing-overflow"
+                          style={{ width: `${overflowWidth}%` }}
+                        />
+                        {line.backlogPerHour > 0 && (
+                          <i style={{ left: `${processedWidth}%` }} />
+                        )}
+                      </div>
+                      <div className="packing-comparison-legend">
+                        <span>
+                          <i className="packing-processed" />
+                          Trong năng lực
+                        </span>
+                        {line.backlogPerHour > 0 ? (
+                          <strong>
+                            <i className="packing-overflow" />
+                            Vượt {Math.ceil(line.backlogPerHour)} sp/giờ
+                          </strong>
+                        ) : (
+                          <span>
+                            Còn dư{" "}
+                            {Math.max(
+                              0,
+                              Math.round(line.capacity - line.demand),
+                            )}{" "}
+                            sp/giờ
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </article>
                 );
               })}
             </section>
             <div className="section-heading">
-              <h2>Đề xuất phương án</h2>
-              <span className="model-badge">Tính theo đầu vào hiện tại</span>
+              <h2>
+                {appliedComparison
+                  ? "Phương án đã áp dụng"
+                  : "Đề xuất phương án"}
+              </h2>
+              <span className="model-badge">
+                {appliedComparison
+                  ? "So sánh trước–sau áp dụng"
+                  : "Tính theo đầu vào hiện tại"}
+              </span>
             </div>
             {/* <p className="score-explanation">
               Các lựa chọn được nạp sẵn; tải, trễ và rủi ro tính lại theo kế
@@ -2886,12 +3289,16 @@ export const App: React.FC = () => {
                   <h3>{selectedEvaluation.name}</h3>
                   <span
                     className={
-                      selectedSel === rec
+                      selectedSel === rec && selectedEvaluation.solvesBottleneck
                         ? "recommendation-badge"
                         : "selection-badge"
                     }
                   >
-                    {selectedSel === rec ? "Khuyến nghị" : "Đang chọn"}
+                    {appliedComparison
+                      ? "Đã áp dụng"
+                      : selectedSel === rec && selectedEvaluation.solvesBottleneck
+                        ? "Khuyến nghị"
+                        : selectedEvaluation.solvesBottleneck ? "Đã xử lý điểm nghẽn" : "Còn điểm nghẽn"}
                   </span>
                 </div>
                 <p className="section-description">
@@ -2899,12 +3306,28 @@ export const App: React.FC = () => {
                   selectedEvaluation.addAgv ||
                   selectedEvaluation.res.unitsPerHour !==
                     currentCalc.unitsPerHour
-                    ? `${selectedEvaluation.addAmr ? `+${selectedEvaluation.addAmr} AMR Kho–Staging. ` : ""}${selectedEvaluation.addAgv ? `+${selectedEvaluation.addAgv} AGV cấp Line ${selectedEvaluation.resources.targetLine}. ` : ""}${selectedEvaluation.res.unitsPerHour !== currentCalc.unitsPerHour ? `Sản lượng về ${Math.round((selectedEvaluation.res.unitsPerHour / P.unitsPerHour) * 100)}%.` : ""}`
+                    ? `${selectedEvaluation.addAmr ? `+${selectedEvaluation.addAmr} AMR Kho–Staging. ` : ""}${selectedEvaluation.addAgv && !selectedEvaluation.addAgvByLine ? `+${selectedEvaluation.addAgv} AGV cấp Line ${selectedEvaluation.resources.targetLine}. ` : ""}${selectedEvaluation.res.unitsPerHour !== currentCalc.unitsPerHour ? `Sản lượng về ${Math.round((selectedEvaluation.res.unitsPerHour / P.unitsPerHour) * 100)}%.` : ""}`
                     : "Giữ nguyên nguồn lực cấp vật tư hiện tại."}
                 </p>
-                {Object.entries(selectedEvaluation.addPackingByLine ?? {}).map(([line, count]) => (
-                  <p key={line} className="section-description">+{count} nhân viên đóng gói Line {line} · {packingWorkers[line]} → {selectedEvaluation.resources.packingWorkers[line]} người.</p>
-                ))}
+                {selectedEvaluation.addAgvByLine && <p className="section-description">
+                  {Object.entries(selectedEvaluation.addAgvByLine).filter(([, count]) => count > 0).map(([line, count]) => `+${count} AGV Line ${line}`).join(" · ")}
+                </p>}
+                {Object.entries(selectedEvaluation.addStockByMaterial ?? {}).filter(([, count]) => count > 0).map(([id, count]) =>
+                  <p key={id} className="section-description">Bổ sung {M.find(item => item.id === id)?.name ?? id}: +{count} pcs vào kho.</p>)}
+                {!selectedEvaluation.solvesBottleneck && <p className="section-description r">Phương án chưa xử lý hết điểm nghẽn. Chọn phương án kết hợp được khuyến nghị; nếu không có, cần điều chỉnh năng lực công đoạn hoặc tồn vật tư.</p>}
+                {Object.entries(selectedEvaluation.addPackingByLine ?? {}).map(
+                  ([line, count]) => (
+                    <p key={line} className="section-description">
+                      +{count} nhân viên đóng gói Line {line} ·{" "}
+                      {appliedComparison
+                        ? (done?.resourcesBefore?.packingWorkers?.[line] ??
+                          packingWorkers[line])
+                        : packingWorkers[line]}{" "}
+                      → {selectedEvaluation.resources.packingWorkers[line]}{" "}
+                      người.
+                    </p>
+                  ),
+                )}
                 <dl className="recommendation-metrics">
                   <div>
                     <dt>
@@ -2912,7 +3335,7 @@ export const App: React.FC = () => {
                       Năng lực vận chuyển
                     </dt>
                     <dd>
-                      {c.cap.toFixed(0)} →{" "}
+                      {(baselineEvaluation?.res.cap ?? c.cap).toFixed(0)} →{" "}
                       {selectedEvaluation.res.cap.toFixed(0)} chuyến/h
                     </dd>
                   </div>
@@ -2922,8 +3345,10 @@ export const App: React.FC = () => {
                       Mức tải cao nhất AMR/AGV
                     </dt>
                     <dd>
-                      {(c.util * 100).toFixed(0)}% →{" "}
-                      {(selectedEvaluation.res.util * 100).toFixed(0)}%
+                      {((baselineEvaluation?.res.util ?? c.util) * 100).toFixed(
+                        0,
+                      )}
+                      % → {(selectedEvaluation.res.util * 100).toFixed(0)}%
                     </dd>
                   </div>
                   <div>
@@ -2932,7 +3357,7 @@ export const App: React.FC = () => {
                       Thời gian giao trễ
                     </dt>
                     <dd>
-                      {c.delay.toFixed(0)} →{" "}
+                      {(baselineEvaluation?.res.delay ?? c.delay).toFixed(0)} →{" "}
                       {selectedEvaluation.res.delay.toFixed(0)} phút
                     </dd>
                   </div>
@@ -2958,7 +3383,7 @@ export const App: React.FC = () => {
                   <button
                     id="ap"
                     className="s"
-                    disabled={alreadyExecutedForCurrentState}
+                    disabled={alreadyExecutedForCurrentState || !selectedEvaluation.solvesBottleneck}
                     onClick={handleApprove}
                   >
                     {alreadyExecutedForCurrentState
@@ -2968,18 +3393,19 @@ export const App: React.FC = () => {
                 </div>
               </div>
             )}
-            {selectedSel !== rec && (
+            {!appliedComparison && selectedSel !== rec && recScenario?.solvesBottleneck && (
               <p className="helper-text">
                 Mô hình khuyến nghị: <b>{recScenario?.name}</b>
               </p>
             )}
           </section>
           <p className="score-explanation">
-            Năng lực: chuyến/giờ 
+            Năng lực: chuyến/giờ
             <br></br>Mức tải cao nhất: AMR/AGV (%)
             <br></br>Sản lượng: sản phẩm/giờ
             <br></br>Đánh giá: điểm 0–100, điểm cao hơn tốt hơn.
-            <br></br>Điểm giảm khi nhân viên đóng gói quá tải; khuyến nghị xét cả nguồn lực cấp vật tư và đóng gói.
+            <br></br>Điểm giảm khi nhân viên đóng gói quá tải; khuyến nghị xét
+            cả nguồn lực cấp vật tư và đóng gói.
           </p>
           <div className="insight-history">
             <div className="decision-secondary-actions">
@@ -3189,7 +3615,13 @@ export const App: React.FC = () => {
                           </small>
                         )}
                         {run.resourcesAfter?.packingWorkers && (
-                          <small>Nhân viên đóng gói A/B: {run.resourcesBefore?.packingWorkers?.A}/{run.resourcesBefore?.packingWorkers?.B} → {run.resourcesAfter.packingWorkers.A}/{run.resourcesAfter.packingWorkers.B}</small>
+                          <small>
+                            Nhân viên đóng gói A/B:{" "}
+                            {run.resourcesBefore?.packingWorkers?.A}/
+                            {run.resourcesBefore?.packingWorkers?.B} →{" "}
+                            {run.resourcesAfter.packingWorkers.A}/
+                            {run.resourcesAfter.packingWorkers.B}
+                          </small>
                         )}
                       </th>
                       <td>{run.productionPercent}%</td>

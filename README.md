@@ -62,6 +62,7 @@ Hình minh họa các công đoạn của demo
 
 ### Xem trước, đánh giá và áp dụng what-if
 
+- Tự tạo phương án kết hợp AMR, AGV từng Line, nhân viên đóng gói và bổ sung tồn vật tư theo nhu cầu. Chỉ khuyến nghị và cho áp dụng khi không còn rủi ro vật tư dự báo, không quá tải công đoạn và tải xe/đóng gói đạt ngưỡng 85%. Phương án cải thiện một phần vẫn xem thử được. Nếu năng lực cố định của kho, lấy/gom hoặc chuyền không đủ, demo yêu cầu điều chỉnh năng lực thay vì khuyến nghị phương án còn nghẽn. Chi phí mua vật tư bổ sung chưa được quy đổi sang điểm nguồn lực.
 - Giữ phương án **Giữ kế hoạch đang chọn** ở đầu bảng; các phương án khác xếp theo điểm đánh giá giảm dần. Các lựa chọn giữ nguyên sản lượng mục tiêu và điều chỉnh nguồn lực.
 - Phương án nhân lực được tạo theo chuyền đang thiếu người, không cố định ở Line A. Số người bổ sung được tính để tải đóng gói về ngưỡng 85%; khi đã đủ người và không phát sinh tồn do thiếu nhân lực thì không tạo thêm phương án nhân lực.
 - Dự báo, xem trước, NPC và thao tác áp dụng dùng chung số nhân viên. Mục Nhân sự hiển thị tổng nhân viên đóng gói A/B: mặc định 2 người, thêm một người thành 3.
