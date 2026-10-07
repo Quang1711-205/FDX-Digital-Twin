@@ -1,4 +1,9 @@
 {
-  "threshold": { "knee": 0.85, "delayK": 150, "red": 20, "amber": 35 },
-  "route": "Kho → Staging → Line-Side"
+  "threshold": {
+    "knee": 0.85,
+    "delayK": 150,
+    "red": 20,
+    "amber": 35
+  },
+  "route": "Kho → Picking/Kitting → AMR → Staging → AGV → Line-Side"
 }

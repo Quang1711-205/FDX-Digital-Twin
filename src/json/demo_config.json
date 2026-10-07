@@ -1,0 +1,560 @@
+{
+  "label": "Demo assumptions — editable; not factory measurements",
+  "production": {
+    "unitsPerHour": 100,
+    "shift": "2 ca · 16h",
+    "mix": [
+      {
+        "model": "ECU-A",
+        "pct": 40
+      },
+      {
+        "model": "Alternator-B",
+        "pct": 35
+      },
+      {
+        "model": "Sensor-C",
+        "pct": 25
+      }
+    ],
+    "sequence": [
+      "ECU-A",
+      "Alternator-B",
+      "ECU-A",
+      "Sensor-C"
+    ],
+    "lineByModel": {
+      "ECU-A": "A",
+      "Alternator-B": "A",
+      "Sensor-C": "B"
+    }
+  },
+  "materials": {
+    "items": [
+      {
+        "id": "M1",
+        "name": "PCB ECU",
+        "perUnit": 3,
+        "tripQty": 40,
+        "stock": 250,
+        "line": "A",
+        "usageByModel": {
+          "ECU-A": 7.5,
+          "Alternator-B": 0,
+          "Sensor-C": 0
+        }
+      },
+      {
+        "id": "M2",
+        "name": "Cuộn dây Alt",
+        "perUnit": 4,
+        "tripQty": 40,
+        "stock": 300,
+        "line": "A",
+        "usageByModel": {
+          "ECU-A": 0,
+          "Alternator-B": 11.4285714286,
+          "Sensor-C": 0
+        }
+      },
+      {
+        "id": "M3",
+        "name": "Vỏ cảm biến",
+        "perUnit": 2.5,
+        "tripQty": 40,
+        "stock": 220,
+        "line": "B",
+        "usageByModel": {
+          "ECU-A": 0,
+          "Alternator-B": 0,
+          "Sensor-C": 10
+        }
+      },
+      {
+        "id": "M4",
+        "name": "Connector",
+        "perUnit": 2.5,
+        "tripQty": 40,
+        "stock": 240,
+        "line": "B",
+        "usageByModel": {
+          "ECU-A": 0,
+          "Alternator-B": 0,
+          "Sensor-C": 10
+        }
+      }
+    ],
+    "bomNote": "BOM giả định theo tên model, quy đổi để giữ nhu cầu ở mix gốc 40/35/25. ECU-A/Alternator-B ở Line A, Sensor-C ở Line B; chỉnh mức dùng vật tư cùng line. Cần xác nhận BOM nhà máy trước khi sử dụng thực tế."
+  },
+  "resources": {
+    "amr": {
+      "available": 7,
+      "cycleMinutes": 12,
+      "handlingSeconds": 15
+    },
+    "agv": {
+      "byLine": {
+        "A": 2,
+        "B": 2
+      },
+      "cycleMinutes": 6,
+      "handlingSeconds": 15,
+      "loadsPerTrip": 1,
+      "costPointsPerVehicle": 12
+    },
+    "operators": 2,
+    "finishedGoods": {
+      "workersByLine": { "A": 1, "B": 1 },
+      "packingSecondsPerUnit": 60,
+      "costPointsPerWorker": 6,
+      "unitsPerAgvLoad": 6,
+      "pickupWaitSeconds": 60,
+      "stagingWaitSeconds": 30,
+      "agvSceneSpeed": 6
+    },
+    "staging": {
+      "pallets": 24,
+      "demoInitialLoads": 12
+    },
+    "picking": {
+      "capacity": 42,
+      "kitters": 4
+    },
+    "warehouse": {
+      "dockCapacity": 55
+    },
+    "line": {
+      "capacityUnits": 130
+    },
+    "lineSideLoadsPerMaterial": 2,
+    "initialLineSideLoads": 1
+  },
+  "operations": {
+    "threshold": {
+      "knee": 0.85,
+      "delayK": 150,
+      "red": 20,
+      "amber": 35
+    },
+    "route": "Kho → Picking/Kitting → AMR → Staging → AGV → Line-Side"
+  },
+  "scenarios": {
+    "assumptions": "Demo scoring on a 0–100 scale: (55% delay reduction + 30% material-risk reduction + 15% resource-cost savings versus the current plan) divided by max(1, packing utilization); higher is preferred. Each additional packing worker uses 6 demo resource points and packs 60 units/hour. Recommendations consider both supply-fleet and packing utilization. Additional supply AGV serves the currently highest-utilization line; ties prefer A.",
+    "items": [
+      {
+        "id": "s1",
+        "name": "Giữ nguyên",
+        "addAmr": 0,
+        "addAgv": 0,
+        "cost": 0
+      },
+      {
+        "id": "s2",
+        "name": "+1 AMR",
+        "addAmr": 1,
+        "addAgv": 0,
+        "cost": 12
+      },
+      {
+        "id": "s3",
+        "name": "+1 AGV",
+        "addAmr": 0,
+        "addAgv": 1,
+        "cost": 12
+      },
+      {
+        "id": "s4",
+        "name": "+1 AMR +1 AGV",
+        "addAmr": 1,
+        "addAgv": 1,
+        "cost": 24
+      }
+    ]
+  },
+  "demoScenarios": [
+    {
+      "id": "plan_change",
+      "name": "Thay đổi kế hoạch sản xuất",
+      "description": "Giữ nguyên sản lượng mục tiêu đang chọn; các phương án what-if chỉ điều chỉnh nguồn lực để xử lý điểm nghẽn.",
+      "productionPercent": 100,
+      "mix": {
+        "ECU-A": 40,
+        "Alternator-B": 35,
+        "Sensor-C": 25
+      },
+      "resources": {
+        "amr": 7,
+        "agvByLine": {
+          "A": 2,
+          "B": 2
+        }
+      },
+      "risk": {
+        "line": "A & B",
+        "materialId": null,
+        "delayMinutes": 0,
+        "confidence": 87,
+        "causes": []
+      },
+      "whatIfs": [
+        {
+          "id": "plan_keep",
+          "name": "Giữ kế hoạch đang chọn",
+          "addAmr": 0,
+          "addAgv": 0,
+          "cost": 0
+        },
+        {
+          "id": "plan_amr",
+          "name": "+1 AMR",
+          "addAmr": 1,
+          "addAgv": 0,
+          "cost": 12
+        },
+        {
+          "id": "plan_agv",
+          "name": "+1 AGV",
+          "addAmr": 0,
+          "addAgv": 1,
+          "cost": 12
+        },
+        {
+          "id": "plan_both",
+          "name": "+1 AMR +1 AGV",
+          "addAmr": 1,
+          "addAgv": 1,
+          "cost": 24
+        },
+        {
+          "id": "plan_amr2_agv",
+          "name": "+2 AMR +1 AGV",
+          "addAmr": 2,
+          "addAgv": 1,
+          "minProductionPercent": 101,
+          "cost": 36
+        }
+      ]
+    },
+    {
+      "id": "stable",
+      "name": "Vận hành ổn định",
+      "description": "Kế hoạch cơ sở, nguồn lực đủ cho hai chuyền.",
+      "productionPercent": 100,
+      "mix": {
+        "ECU-A": 40,
+        "Alternator-B": 35,
+        "Sensor-C": 25
+      },
+      "resources": {
+        "amr": 7,
+        "agvByLine": {
+          "A": 2,
+          "B": 2
+        }
+      },
+      "risk": {
+        "line": "A & B",
+        "materialId": null,
+        "delayMinutes": 0,
+        "confidence": 87,
+        "causes": [
+          "Luồng cấp hàng hoạt động ổn định",
+          "Staging còn khả năng tiếp nhận",
+          "Line-side được bổ sung theo nhịp mô phỏng"
+        ]
+      },
+      "whatIfs": [
+        {
+          "id": "keep",
+          "name": "Giữ nguyên",
+          "addAmr": 0,
+          "addAgv": 0,
+          "targetLine": "A",
+          "cost": 0,
+          "forecast": {
+            "capacity": 34.3,
+            "utilization": 0.88,
+            "delay": 0,
+            "critical": 0,
+            "warning": 0,
+            "score": 0,
+            "recommended": true
+          }
+        },
+        {
+          "id": "amr1",
+          "name": "+1 AMR",
+          "addAmr": 1,
+          "addAgv": 0,
+          "targetLine": "A",
+          "cost": 12,
+          "forecast": {
+            "capacity": 40,
+            "utilization": 0.75,
+            "delay": 0,
+            "critical": 0,
+            "warning": 0,
+            "score": 12
+          }
+        },
+        {
+          "id": "agvA1",
+          "name": "+1 AGV Line A",
+          "addAmr": 0,
+          "addAgv": 1,
+          "targetLine": "A",
+          "cost": 12,
+          "forecast": {
+            "capacity": 37,
+            "utilization": 0.82,
+            "delay": 0,
+            "critical": 0,
+            "warning": 0,
+            "score": 12
+          }
+        }
+      ]
+    },
+    {
+      "id": "amr_bottleneck",
+      "name": "Tăng sản lượng · nghẽn AMR",
+      "description": "Sản lượng tăng 20%; AMR có thể không cấp đủ hàng vào staging.",
+      "productionPercent": 120,
+      "mix": {
+        "ECU-A": 40,
+        "Alternator-B": 35,
+        "Sensor-C": 25
+      },
+      "resources": {
+        "amr": 7,
+        "agvByLine": {
+          "A": 2,
+          "B": 2
+        }
+      },
+      "risk": {
+        "line": "A & B",
+        "materialId": "M1",
+        "delayMinutes": 18,
+        "confidence": 87,
+        "causes": [
+          "Nhu cầu chuyến tăng theo sản lượng",
+          "AMR Kho–Staging gần hết năng lực",
+          "AGV có thể phải chờ staging"
+        ]
+      },
+      "whatIfs": [
+        {
+          "id": "keep",
+          "name": "Giữ nguyên",
+          "addAmr": 0,
+          "addAgv": 0,
+          "targetLine": "A",
+          "cost": 0,
+          "forecast": {
+            "capacity": 34.3,
+            "utilization": 1.05,
+            "delay": 18,
+            "critical": 1,
+            "warning": 1,
+            "score": 18
+          }
+        },
+        {
+          "id": "amr1",
+          "name": "+1 AMR",
+          "addAmr": 1,
+          "addAgv": 0,
+          "targetLine": "A",
+          "cost": 12,
+          "forecast": {
+            "capacity": 40,
+            "utilization": 0.92,
+            "delay": 5,
+            "critical": 0,
+            "warning": 1,
+            "score": 8,
+            "recommended": true
+          }
+        },
+        {
+          "id": "amr2",
+          "name": "+2 AMR",
+          "addAmr": 2,
+          "addAgv": 0,
+          "targetLine": "A",
+          "cost": 24,
+          "forecast": {
+            "capacity": 45,
+            "utilization": 0.81,
+            "delay": 0,
+            "critical": 0,
+            "warning": 0,
+            "score": 24
+          }
+        }
+      ]
+    },
+    {
+      "id": "line_b_mix",
+      "name": "Đổi mix · nghẽn AGV Line B",
+      "description": "Tỷ trọng Sensor-C tăng lên 50%, làm nhu cầu cấp Line B tăng.",
+      "productionPercent": 100,
+      "mix": {
+        "ECU-A": 25,
+        "Alternator-B": 25,
+        "Sensor-C": 50
+      },
+      "resources": {
+        "amr": 7,
+        "agvByLine": {
+          "A": 2,
+          "B": 2
+        }
+      },
+      "risk": {
+        "line": "B",
+        "materialId": "M3",
+        "delayMinutes": 22,
+        "confidence": 84,
+        "causes": [
+          "Model Sensor-C chiếm 50% mix",
+          "Nhu cầu phát sinh tại Line B tăng",
+          "AGV Line B là chặng cấp vật tư giới hạn"
+        ]
+      },
+      "whatIfs": [
+        {
+          "id": "keep",
+          "name": "Giữ nguyên",
+          "addAmr": 0,
+          "addAgv": 0,
+          "targetLine": "B",
+          "cost": 0,
+          "forecast": {
+            "capacity": 34.3,
+            "utilization": 1.12,
+            "delay": 22,
+            "critical": 1,
+            "warning": 1,
+            "score": 20
+          }
+        },
+        {
+          "id": "amr1",
+          "name": "+1 AMR",
+          "addAmr": 1,
+          "addAgv": 0,
+          "targetLine": "B",
+          "cost": 12,
+          "forecast": {
+            "capacity": 34.3,
+            "utilization": 1.12,
+            "delay": 22,
+            "critical": 1,
+            "warning": 1,
+            "score": 32
+          }
+        },
+        {
+          "id": "agvB1",
+          "name": "+1 AGV Line B",
+          "addAmr": 0,
+          "addAgv": 1,
+          "targetLine": "B",
+          "cost": 12,
+          "forecast": {
+            "capacity": 40,
+            "utilization": 0.78,
+            "delay": 4,
+            "critical": 0,
+            "warning": 0,
+            "score": 8,
+            "recommended": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "agv_a_outage",
+      "name": "AGV Line A ngừng hoạt động",
+      "description": "Một AGV Line A tạm ngừng; staging A tăng hàng chờ giao.",
+      "productionPercent": 100,
+      "mix": {
+        "ECU-A": 40,
+        "Alternator-B": 35,
+        "Sensor-C": 25
+      },
+      "resources": {
+        "amr": 7,
+        "agvByLine": {
+          "A": 1,
+          "B": 2
+        }
+      },
+      "risk": {
+        "line": "A",
+        "materialId": "M1",
+        "delayMinutes": 26,
+        "confidence": 82,
+        "causes": [
+          "AGV Line A khả dụng giảm từ 2 xe xuống 1",
+          "Staging A có thể tăng tồn chờ giao",
+          "Line A có nguy cơ thiếu vật tư line-side"
+        ]
+      },
+      "whatIfs": [
+        {
+          "id": "keep",
+          "name": "Giữ nguyên",
+          "addAmr": 0,
+          "addAgv": 0,
+          "targetLine": "A",
+          "cost": 0,
+          "forecast": {
+            "capacity": 24.3,
+            "utilization": 1.25,
+            "delay": 26,
+            "critical": 1,
+            "warning": 1,
+            "score": 20
+          }
+        },
+        {
+          "id": "agvA1",
+          "name": "Kích hoạt AGV dự phòng",
+          "addAmr": 0,
+          "addAgv": 1,
+          "targetLine": "A",
+          "cost": 12,
+          "forecast": {
+            "capacity": 34.3,
+            "utilization": 0.88,
+            "delay": 3,
+            "critical": 0,
+            "warning": 0,
+            "score": 8,
+            "recommended": true
+          }
+        },
+        {
+          "id": "recovery",
+          "name": "Giảm sản lượng chung xuống 80%",
+          "addAmr": 0,
+          "addAgv": 0,
+          "targetLine": "A",
+          "productionPercent": 80,
+          "cost": 0,
+          "forecast": {
+            "capacity": 24.3,
+            "utilization": 0.9,
+            "delay": 8,
+            "critical": 0,
+            "warning": 1,
+            "score": 8
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,6 +1,14 @@
 {
-  "s1": { "reason": "Tải ổn định, chưa cần can thiệp.", "kpi": "Chi phí 0" },
-  "s2": { "reason": "Giảm áp lực AMR, vẫn còn điểm Line-Side ở mức cảnh báo.", "kpi": "Chi phí +12" },
-  "s3": { "reason": "Xoá toàn bộ rủi ro nhưng chi phí cao nhất.", "kpi": "Chi phí +24" },
-  "s4": { "reason": "Forklift milk-run bổ sung chuyến cho tuyến Staging, cân bằng rủi ro và chi phí tốt nhất.", "kpi": "Chi phí +8 · triển khai trong ca" }
+  "s1": {
+    "reason": "Giữ nguồn lực hiện tại."
+  },
+  "s2": {
+    "reason": "Bổ sung AMR cho chặng Kho–Staging."
+  },
+  "s3": {
+    "reason": "Bổ sung AGV cho chuyền có tải AGV cao nhất."
+  },
+  "s4": {
+    "reason": "Bổ sung nguồn lực cho cả hai chặng."
+  }
 }

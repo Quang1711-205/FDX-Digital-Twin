@@ -1,9 +1,31 @@
 {
-  "amr": { "available": 7, "tripsPerHour": 5 },
-  "forklift": 3,
+  "amr": {
+    "available": 7,
+    "tripsPerHour": 5
+  },
   "operators": 12,
-  "staging": { "pallets": 24 },
-  "picking": { "capacity": 42, "kitters": 4 },
-  "warehouse": { "dockCapacity": 55 },
-  "line": { "capacityUnits": 130 }
+  "staging": {
+    "pallets": 24
+  },
+  "picking": {
+    "capacity": 42,
+    "kitters": 4
+  },
+  "warehouse": {
+    "dockCapacity": 55
+  },
+  "line": {
+    "capacityUnits": 130
+  },
+  "agv": {
+    "byLine": {
+      "A": 2,
+      "B": 2
+    },
+    "tripsPerHour": 10,
+    "cycleMinutes": 6,
+    "loadUnitsPerTrip": 1,
+    "costPointsPerVehicle": 12,
+    "assumption": "Demo assumptions; one load uses the material tripQty. Not factory measurements."
+  }
 }

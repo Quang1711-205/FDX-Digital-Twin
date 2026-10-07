@@ -74,6 +74,12 @@ export interface ScenarioMetrics {
 export type RiskLevel = 'NORMAL' | 'WARNING' | 'CRITICAL';
 
 export interface OperationsSnapshot {
+  upstreamCapacity: number;
+  upstreamUtilization: number;
+  upstreamDelay: number;
+  amrLines: Array<{ line: string; count: number; demand: number; capacity: number; utilization: number; delay: number }>;
+  agvLines: Array<{ line: string; count: number; demand: number; capacity: number; utilization: number; delay: number }>;
+  stagingSupplyLimited: boolean;
   unitsPerHour: number;
   materials: Array<{
     id: string;
