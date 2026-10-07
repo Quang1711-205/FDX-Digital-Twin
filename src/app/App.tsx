@@ -1839,8 +1839,8 @@ export const App: React.FC = () => {
         <div className="dashboard-brand">
           <b>DENSO</b>
           <div>
-            <h1>Logistics Allocation</h1>
-            <small>Giám sát logistics & hỗ trợ quyết định</small>
+            <h1>Logistics Forecasting</h1>
+            <small>Dự đoán điểm nghẽn và đề xuất đối sách</small>
           </div>
         </div>
 
