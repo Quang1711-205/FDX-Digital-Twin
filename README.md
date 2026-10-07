@@ -34,7 +34,7 @@ npm run build
 ```
 
 ## Luồng hoạt động thực tế
-
+![Minh họa luồng thực tế](docs/images/thucte.jpg)
 
 ## Luồng hoạt động demo hiện tại (Chỉ là các kịch bản nạp sẵn để chứng minh tính khả thi của đề tài)
 
@@ -68,17 +68,6 @@ Hình minh họa các công đoạn của demo
 - Thẻ Nhân lực đóng gói thể hiện tải, nhu cầu, năng lực và trạng thái có/không có điểm nghẽn. Hover hoặc focus biểu tượng ⓘ để xem cảnh báo cụ thể.
 - Xem trước giữ bản sao trạng thái chính để có thể khôi phục khi thoát. Hàng chờ đóng gói được giữ lại khi áp dụng bổ sung nhân viên, thay vì xóa để tạo hiệu ứng hết nghẽn.
 - Áp dụng ghi cấu hình và dự báo trước–sau vào lịch sử. Nguồn lực thay đổi được cập nhật trong cảnh; khi thay đội xe cấp vật tư, hàng trên xe được trả về kho trước khi tạo đội xe mới để bảo toàn vật tư.
-
-Điểm đánh giá được làm tròn trong **thang 0–100; cao hơn tốt hơn**:
-
-```text
-Điểm = làm tròn(
-  (55% × điểm giảm giao trễ
-   + 30% × điểm giảm rủi ro vật tư
-   + 15% × điểm tiết kiệm nguồn lực)
-  / max(1, tỷ lệ tải đóng gói cao nhất)
-)
-```
 
 Điểm giảm giao trễ và rủi ro được tính theo mức cải thiện so với kế hoạch hiện tại. Điểm tiết kiệm so sánh với phương án tốn nhiều điểm nguồn lực nhất trong nhóm. Điểm nguồn lực là quy ước demo, **không phải giá tiền**: mỗi xe bổ sung 12 điểm, mỗi nhân viên đóng gói bổ sung 6 điểm.
 
