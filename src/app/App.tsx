@@ -976,7 +976,6 @@ export const App: React.FC = () => {
       { id: "l5", v: new THREE.Vector3(12, 2, -8) },
       { id: "l6", v: new THREE.Vector3(12, 2, 8) },
       { id: "finishedPacking", v: new THREE.Vector3(22, 4.2, -12) },
-      { id: "finishedStaging", v: new THREE.Vector3(28, 2.5, 0) },
       { id: "finishedWarehouse", v: new THREE.Vector3(37, 4.2, -10) },
       { id: "stagingA", v: new THREE.Vector3(-4.2, 1.5, -6.3) },
       { id: "stagingB", v: new THREE.Vector3(-4.2, 1.5, 6.3) },
@@ -2391,7 +2390,6 @@ export const App: React.FC = () => {
             })}
             {[
               ["finishedPacking", "ĐÓNG GÓI THÀNH PHẨM"],
-              ["finishedStaging", "TẬP KẾT THÀNH PHẨM"],
               ["finishedWarehouse", "KHO THÀNH PHẨM"],
             ].map(([id, title]) => (
               <div key={id} className="lb z stage-label"

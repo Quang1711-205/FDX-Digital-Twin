@@ -3,11 +3,11 @@
 A 3D Digital Twin simulation for automotive component manufacturing logistics built with React, Vite, and Three.js.
 
 ## 🚀 Features
-- **3D Factory & Logistics Twin**: Visual simulation of material supply, assembly lines, packaging workers, finished-goods queues, and AGV delivery to the finished-goods warehouse.
-- **Dynamic 3D Labels Projection**: Area and line labels remain visible; vehicle and worker labels appear on hover.
-- **What-If Scenario Simulation**: Compare additional AMRs, line AGVs, and packaging workers, preview their effects, and apply a selected scenario.
-- **Rule-based Demo Recommendations**: Compare scenarios using a 0–100 score, where higher is better, and account for transport and packaging bottlenecks.
-- **JSON Mock Data Separation**: Modular JSON data structures located in `src/json/`.
+- **3D Factory & Logistics Twin**: Mô phỏng trực quan luồng cấp vật tư, các Line sản xuất, nhân viên đóng gói, hàng chờ thành phẩm và AGV đưa hàng trực tiếp vào kho thành phẩm.
+- **Dynamic 3D Labels Projection**: Nhãn khu vực và Line luôn hiển thị; nhãn phương tiện và nhân viên xuất hiện khi hover.
+- **What-If Scenario Simulation**: So sánh các phương án bổ sung AMR, AGV theo Line và nhân viên đóng gói, xem trước tác động và áp dụng kịch bản được chọn.
+- **Rule-based Demo Recommendations**: So sánh các kịch bản theo thang điểm 0–100, điểm cao hơn tốt hơn, có xét điểm nghẽn vận chuyển và đóng gói.
+- **JSON Mock Data Separation**: Dữ liệu JSON được tách thành các module trong `src/json/`.
 
 ## 🛠 Tech Stack
 - **Framework**: React 19 + Vite
@@ -47,6 +47,10 @@ Các thao tác áp dụng chỉ tác động tới mô phỏng. Demo chưa kết
 
 ### Luồng vật tư và thành phẩm trong 3D
 
+![Minh họa luồng cấp vật tư, sản xuất, đóng gói và vận chuyển thành phẩm](docs/images/material-finished-goods-flow.png)
+
+Hình minh họa các công đoạn của demo; AGV lấy kiện đã đóng gói tại ô chờ và đưa trực tiếp vào kho thành phẩm.
+
 ```text
 Kho vật tư → Lấy/gom → AMR → Khu tập kết vật tư → AGV → Bộ đệm Line A/B
                                                               ↓
@@ -54,14 +58,14 @@ Kho vật tư → Lấy/gom → AMR → Khu tập kết vật tư → AGV → B�
                                                               ↓
 Hàng chưa đóng gói chờ trước bàn → Nhân viên đóng gói → Kiện chờ AGV
                                                               ↓
-                         Qua khu tập kết thành phẩm → Ô nhận kho thành phẩm
+                         AGV thành phẩm → Ô nhận kho thành phẩm
 ```
 
 - AMR lấy hàng từ kho và giao tới khu tập kết vật tư; AGV nhận đúng mã vật tư rồi giao vào bộ đệm của chuyền. Kho hết hàng hoặc bộ đệm đầy khiến xe chờ. Chuyền chỉ tiêu thụ vật tư và tạo sản phẩm khi đủ các vật tư cần thiết.
 - Mỗi chuyền mặc định có **1 nhân viên đóng gói**, thời gian **60 giây mô phỏng/sản phẩm**, tương đương **60 sản phẩm/giờ/người**. Hàng chưa đóng gói được hiển thị trước bàn; kiện đã đóng gói nằm trên ô chờ đến khi AGV lấy.
 - Với kế hoạch **120 sản phẩm/giờ** và mix mặc định **75% Line A / 25% Line B**, tải đóng gói là **150% ở A**, **50% ở B**. Thêm một nhân viên A đưa tải A xuống **75%**, năng lực lên **120 sản phẩm/giờ**.
 - AGV thành phẩm đi theo tuyến hình chữ nhật. Xe giữ hàng khi qua điểm trung gian và các góc, chỉ dỡ tại ô nhận kho. Tốc độ lấy theo AGV cấp vật tư của cùng chuyền; đây là đội xe riêng, không trừ xe khỏi đội cấp vật tư.
-- Nhãn khu vực chính và chuyền luôn hiện; nhãn xe và nhân viên chỉ hiện khi hover. Góc nhìn tổng quan bao gồm khu đóng gói, tập kết và kho thành phẩm.
+- Nhãn khu vực chính và chuyền luôn hiện; nhãn xe và nhân viên chỉ hiện khi hover. Khu thành phẩm gồm bàn đóng gói, ô chờ AGV và kho; AGV đưa hàng trực tiếp vào kho, không qua khu tập kết trung gian.
 
 ### Xem trước, đánh giá và áp dụng what-if
 

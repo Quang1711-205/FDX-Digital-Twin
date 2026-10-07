@@ -3,8 +3,10 @@
 The running entry point is `src/main.tsx` ? `src/app/App.tsx` (imperative Three.js).
 Active helpers: `LogisticsFleet.ts` (fleet/material ledger) and `FactoryFloor.ts` (floor/staging layout).
 
-`FinishedGoodsFlow.ts` adds the downstream packing workers, finished-goods staging,
-warehouse and dedicated outbound AGVs. It receives one unit when a product exits
+`FinishedGoodsFlow.ts` adds downstream packing workers, a packed-goods pickup bay,
+warehouse and dedicated outbound AGVs. AGVs deliver directly from the packing
+pickup bay to the warehouse, with no intermediate finished-goods staging area.
+It receives one unit when a product exits
 the live conveyor. Demo assumptions are in `demo_config.json` under
 `resources.finishedGoods`: one worker per line, 60 simulated seconds per packed unit, up to
 6 units per AGV load, 60 simulated seconds waiting at the packing pickup bay,

@@ -14,7 +14,7 @@ export function createFinishedGoodsFlow() {
   };
   box(18, 0.15, 28, 0x183c45, 33, 0, 0);
   box(5, 0.04, 27, 0x435365, 22, 0.09, 0);
-  box(7, 0.04, 27, 0x22594e, 28, 0.09, 0);
+  box(7, 0.04, 27, 0x435365, 28, 0.09, 0);
   box(10, 0.04, 27, 0x294d6a, 37, 0.09, 0);
 
   const lines = ['A', 'B'].map((line, index) => {
@@ -50,7 +50,6 @@ export function createFinishedGoodsFlow() {
     box(1.4, 0.12, 1.1, 0xd6a76a, 0, 0.72, 0, vehicle);
     [-0.6, 0.6].forEach(x => [-0.45, 0.45].forEach(wz => box(0.25, 0.3, 0.22, 0x111827, x, 0.2, wz, vehicle)));
     const cargo = box(1.1, 0.7, 0.85, 0xd97706, 0, 1.12, 0, vehicle);
-    const staging = Array.from({ length: 12 }, (_, i) => box(0.9, 0.6, 0.9, 0xd97706, 27 + i % 3, 0.45, z - 1.5 + Math.floor(i / 3)));
     // Packed boxes remain on this pickup bay until the AGV returns.
     box(2, 0.08, 4, 0xfacc15, 23, 0.16, z - 2.5);
     const waiting = Array.from({ length: 12 }, (_, i) => box(0.65, 0.5, 0.65, 0xd97706, 22.5 + i % 2, 0.48 + Math.floor(i / 8) * 0.5, z - 4 + Math.floor(i % 8 / 2) * 0.85));
@@ -64,15 +63,15 @@ export function createFinishedGoodsFlow() {
     const receiving = box(1.1, 0.7, 0.85, 0xd97706, 33, 0.57, z + 3);
     receiving.visible = false;
     receiving.name = `finished-receiving-${line}`;
-    const points = [[23, z], [28, z], [32, z], [32, z + 3], [23, z + 3], [23, z]];
+    const points = [[23, z], [32, z], [32, z + 3], [23, z + 3], [23, z]];
     const route = new THREE.Line(new THREE.BufferGeometry().setFromPoints(points.map(([x, pz]) => new THREE.Vector3(x, 0.15, pz))), new THREE.LineBasicMaterial({ color: 0x2dd4bf }));
     group.add(route);
-    return { line, z, product, arms, worker, workerCopies: [worker, secondWorker], workerArmSets: [arms, secondArms], workers: 1, unpacked, vehicle, cargo, receiving, waiting, staging, stored, raw: 0, packed: 0, staged: 0, stock: 0, carried: 0, packTime: 0, dwell: 0, warehouseDwell: 0, phase: 0, pickupWait: 0 };
+    return { line, z, product, arms, worker, workerCopies: [worker, secondWorker], workerArmSets: [arms, secondArms], workers: 1, unpacked, vehicle, cargo, receiving, waiting, stored, raw: 0, packed: 0, stock: 0, carried: 0, packTime: 0, dwell: 0, warehouseDwell: 0, phase: 0, pickupWait: 0 };
   });
 
   const reset = () => {
     lines.forEach(state => {
-      state.raw = state.packed = state.staged = state.stock = state.carried = state.packTime = state.dwell = state.phase = 0;
+      state.raw = state.packed = state.stock = state.carried = state.packTime = state.dwell = state.phase = 0;
       state.pickupWait = 0;
       state.warehouseDwell = 0;
       state.vehicle.position.set(23, 0, state.z);
@@ -80,13 +79,13 @@ export function createFinishedGoodsFlow() {
       state.product.visible = state.cargo.visible = false;
       state.receiving.visible = false;
       state.cargo.position.set(0, 1.12, 0);
-      [...state.unpacked, ...state.waiting, ...state.staging, ...state.stored].forEach(mesh => { mesh.visible = false; });
+      [...state.unpacked, ...state.waiting, ...state.stored].forEach(mesh => { mesh.visible = false; });
     });
   };
   reset();
   const saveState = () => lines.map(state => ({
     line: state.line, workers: state.workers, raw: state.raw, packed: state.packed,
-    staged: state.staged, stock: state.stock, carried: state.carried,
+    stock: state.stock, carried: state.carried,
     packTime: state.packTime, dwell: state.dwell, warehouseDwell: state.warehouseDwell, phase: state.phase, pickupWait: state.pickupWait,
     position: state.vehicle.position.toArray(), rotation: state.vehicle.rotation.y,
   }));
@@ -96,7 +95,7 @@ export function createFinishedGoodsFlow() {
     restoreState: (saved: ReturnType<typeof saveState>) => saved.forEach(item => {
       const state = lines.find(line => line.line === item.line);
       if (!state) return;
-      Object.assign(state, { workers: item.workers, raw: item.raw, packed: item.packed, staged: item.staged,
+      Object.assign(state, { workers: item.workers, raw: item.raw, packed: item.packed,
         stock: item.stock, carried: item.carried, packTime: item.packTime, dwell: item.dwell,
         warehouseDwell: item.warehouseDwell, phase: item.phase, pickupWait: item.pickupWait });
       state.vehicle.position.fromArray(item.position);
@@ -116,7 +115,7 @@ export function createFinishedGoodsFlow() {
       }
       state.workerCopies.forEach((worker, i) => { worker.visible = i < state.workers; });
     }),
-    getStatus: () => lines.map(({ line, workers, raw, packed, staged, stock, carried }) => ({ line, workers, raw, packed, staged, stock, carried })),
+    getStatus: () => lines.map(({ line, workers, raw, packed, stock, carried }) => ({ line, workers, raw, packed, stock, carried })),
     receive: (line: string) => { const state = lines.find(item => item.line === line); if (state) state.raw++; },
     update: (animationDt: number, simulationDt: number, speedsByLine: Record<string, number> = {}) => {
       lines.forEach(state => {
@@ -131,8 +130,8 @@ export function createFinishedGoodsFlow() {
           state.carried = Math.min(FINISHED_GOODS.unitsPerAgvLoad, state.packed); state.packed -= state.carried; state.phase = 1;
           state.pickupWait = 0;
         }
-        const targets = [[23, state.z], [28, state.z], [32, state.z], [32, state.z + 3], [23, state.z + 3], [23, state.z]];
-        const savedUnloadProgress = state.phase === 3 ? Math.min(1, state.warehouseDwell / 30) : 0;
+        const targets = [[23, state.z], [32, state.z], [32, state.z + 3], [23, state.z + 3], [23, state.z]];
+        const savedUnloadProgress = state.phase === 2 ? Math.min(1, state.warehouseDwell / 30) : 0;
         state.cargo.position.set(0, 1.12 - 0.55 * savedUnloadProgress, -savedUnloadProgress);
         let remaining = animationDt;
         const speed = Math.max(0, speedsByLine[state.line] ?? FINISHED_GOODS.agvSceneSpeed);
@@ -157,7 +156,7 @@ export function createFinishedGoodsFlow() {
             break;
           }
           state.vehicle.position.set(x, 0, z);
-          if (state.phase === 3) {
+          if (state.phase === 2) {
               const handlingTime = Math.min(remaining, (30 - state.warehouseDwell) / Math.max(simulatedSecondsPerAnimationSecond, 1e-8));
               state.warehouseDwell += handlingTime * simulatedSecondsPerAnimationSecond;
               remaining -= handlingTime;
@@ -170,14 +169,13 @@ export function createFinishedGoodsFlow() {
                 state.phase++;
               } else break;
           } else {
-            state.phase = state.phase === 5 ? 0 : state.phase + 1;
+            state.phase = state.phase === 4 ? 0 : state.phase + 1;
           }
         }
         state.cargo.visible = state.carried > 0;
         state.receiving.visible = state.stock > 0;
         state.unpacked.forEach((mesh, i) => { mesh.visible = i < Math.max(0, state.raw - state.workers); });
         state.waiting.forEach((mesh, i) => { mesh.visible = i < state.packed; });
-        state.staging.forEach((mesh, i) => { mesh.visible = i < state.staged; });
         state.stored.forEach((mesh, i) => { mesh.visible = i < state.stock; });
       });
     },

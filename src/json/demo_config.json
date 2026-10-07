@@ -109,7 +109,6 @@
       "costPointsPerWorker": 6,
       "unitsPerAgvLoad": 6,
       "pickupWaitSeconds": 60,
-      "stagingWaitSeconds": 30,
       "agvSceneSpeed": 6
     },
     "staging": {
