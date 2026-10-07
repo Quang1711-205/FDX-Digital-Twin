@@ -73,18 +73,10 @@ Hình minh họa các công đoạn của demo
 
 ## Tài liệu bổ sung
 
+Xem [Hướng dẫn sử dụng demo](docs/USER_GUIDE.md) để thao tác từng bước và thử các trường hợp điểm nghẽn.
+
 Xem [Những thay đổi so với repo ban đầu](changelogs.md).
 
-## Cấu hình, giả định và giới hạn
-
-- Cấu hình chính: `src/json/demo_config.json`, gồm kế hoạch, BOM, tồn ban đầu, chu kỳ AMR/AGV, năng lực, ngưỡng rủi ro, nhân viên và điểm nguồn lực. Các JSON cũ là dữ liệu mẫu/tham chiếu; `actual_results.json` không phải luồng đo thực tế.
-- BOM và thông số năng lực là giả định demo, cần xác nhận bằng dữ liệu nhà máy trước khi sử dụng thực tế. Nhu cầu theo model được tính từ BOM có trọng số theo Model Mix.
-- Sổ vật tư bảo toàn từng mã: **kho + tập kết + hàng trên xe + bộ đệm chuyền + đã tiêu thụ = tồn đầu kỳ + lượng bổ sung kho**. Vật tư khởi tạo tại tập kết và chuyền được trích từ tồn kho.
-- Ở tốc độ 1×, một giây chạy tương ứng một phút mô phỏng. Điều khiển tốc độ ảnh hưởng chuyển động và tiêu thụ vật tư. Tốc độ xe cấp vật tư tính từ độ dài tuyến, chu kỳ và thời gian giao nhận.
-- Giao trễ là dự báo từ tỷ lệ sử dụng năng lực, chưa phải thời gian giao hàng đo từ animation. Các chỉ số không phải telemetry từ thiết bị.
-- Điểm what-if đã xét quá tải nhân viên đóng gói, **chưa xét riêng năng lực và hàng chờ của AGV thành phẩm**. Phương án giải quyết cấp vật tư/đóng gói vì vậy chưa bảo đảm giải quyết toàn bộ luồng tới kho thành phẩm.
-- Kho thành phẩm hiển thị tối đa 36 kiện/chuyền; hàng chưa đóng gói hiển thị tối đa 48 sản phẩm/chuyền. Bộ đếm nội bộ vẫn giữ số lượng đầy đủ, nhãn đóng gói hiển thị tổng hàng chưa đóng gói.
-- Lịch sử dùng để lưu và đối chiếu. Nhập mức sử dụng thực tế không tự huấn luyện hoặc hiệu chỉnh mô hình. Khả năng tự học là hướng phát triển tiếp theo.
 
 ## Mã nguồn của luồng đang chạy
 
@@ -105,5 +97,3 @@ Cảnh đang chạy dùng Three.js trực tiếp trong `App.tsx`. Các component
 ```bash
 npm run build
 ```
-
-Các script kiểm tra bổ sung nằm trong `scripts/`; cần đối chiếu giả định của script với mô hình hiện tại trước khi dùng. Kết quả kiểm tra logic hoặc build không thay thế kiểm tra trực quan cảnh 3D trong trình duyệt.
