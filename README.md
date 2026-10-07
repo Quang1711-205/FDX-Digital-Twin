@@ -33,7 +33,10 @@ Open `http://localhost:5173` in your browser.
 npm run build
 ```
 
-## Luồng hoạt động demo hiện tại
+## Luồng hoạt động thực tế
+![Minh họa luồng thực tế](docs/images/thucte.jpg)
+
+## Luồng hoạt động demo hiện tại (Chỉ là các kịch bản nạp sẵn để chứng minh tính khả thi của đề tài)
 
 1. **Chọn tình huống và kế hoạch sản xuất.** Người dùng điều chỉnh sản lượng, Model Mix và các đầu vào liên quan. Đổi sản lượng cập nhật nhịp sản xuất và dự báo, giữ trạng thái 3D đang chạy; chuyển tình huống đặt lại mô phỏng.
 2. **Tính nhu cầu và năng lực.** Chương trình tính lượng vật tư theo BOM và Model Mix, nhu cầu chuyến vận chuyển của Line A/B, năng lực AMR/AGV và năng lực nhân viên đóng gói.
@@ -49,17 +52,7 @@ Các thao tác áp dụng chỉ tác động tới mô phỏng. Demo chưa kết
 
 ![Minh họa luồng cấp vật tư, sản xuất, đóng gói và vận chuyển thành phẩm](docs/images/material-finished-goods-flow.png)
 
-Hình minh họa các công đoạn của demo; AGV lấy kiện đã đóng gói tại ô chờ và đưa trực tiếp vào kho thành phẩm.
-
-```text
-Kho vật tư → Lấy/gom → AMR → Khu tập kết vật tư → AGV → Bộ đệm Line A/B
-                                                              ↓
-                                                           Sản xuất
-                                                              ↓
-Hàng chưa đóng gói chờ trước bàn → Nhân viên đóng gói → Kiện chờ AGV
-                                                              ↓
-                         AGV thành phẩm → Ô nhận kho thành phẩm
-```
+Hình minh họa các công đoạn của demo
 
 - AMR lấy hàng từ kho và giao tới khu tập kết vật tư; AGV nhận đúng mã vật tư rồi giao vào bộ đệm của chuyền. Kho hết hàng hoặc bộ đệm đầy khiến xe chờ. Chuyền chỉ tiêu thụ vật tư và tạo sản phẩm khi đủ các vật tư cần thiết.
 - Mỗi chuyền mặc định có **1 nhân viên đóng gói**, thời gian **60 giây mô phỏng/sản phẩm**, tương đương **60 sản phẩm/giờ/người**. Hàng chưa đóng gói được hiển thị trước bàn; kiện đã đóng gói nằm trên ô chờ đến khi AGV lấy.
@@ -75,17 +68,6 @@ Hàng chưa đóng gói chờ trước bàn → Nhân viên đóng gói → Ki�
 - Thẻ Nhân lực đóng gói thể hiện tải, nhu cầu, năng lực và trạng thái có/không có điểm nghẽn. Hover hoặc focus biểu tượng ⓘ để xem cảnh báo cụ thể.
 - Xem trước giữ bản sao trạng thái chính để có thể khôi phục khi thoát. Hàng chờ đóng gói được giữ lại khi áp dụng bổ sung nhân viên, thay vì xóa để tạo hiệu ứng hết nghẽn.
 - Áp dụng ghi cấu hình và dự báo trước–sau vào lịch sử. Nguồn lực thay đổi được cập nhật trong cảnh; khi thay đội xe cấp vật tư, hàng trên xe được trả về kho trước khi tạo đội xe mới để bảo toàn vật tư.
-
-Điểm đánh giá được làm tròn trong **thang 0–100; cao hơn tốt hơn**:
-
-```text
-Điểm = làm tròn(
-  (55% × điểm giảm giao trễ
-   + 30% × điểm giảm rủi ro vật tư
-   + 15% × điểm tiết kiệm nguồn lực)
-  / max(1, tỷ lệ tải đóng gói cao nhất)
-)
-```
 
 Điểm giảm giao trễ và rủi ro được tính theo mức cải thiện so với kế hoạch hiện tại. Điểm tiết kiệm so sánh với phương án tốn nhiều điểm nguồn lực nhất trong nhóm. Điểm nguồn lực là quy ước demo, **không phải giá tiền**: mỗi xe bổ sung 12 điểm, mỗi nhân viên đóng gói bổ sung 6 điểm.
 
