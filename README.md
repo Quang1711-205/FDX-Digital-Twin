@@ -33,23 +33,17 @@ Open `http://localhost:5173` in your browser.
 npm run build
 ```
 
-## Luồng hoạt động demo theo sơ đồ
+## Luồng hoạt động demo hiện tại
 
-| Khối trong sơ đồ | Hoạt động trong chương trình |
-| --- | --- |
-| **Thay đổi kế hoạch sản xuất** | Chọn tình huống, sản lượng và Model Mix. Đổi sản lượng cập nhật nhịp sản xuất và dự báo, giữ trạng thái 3D đang chạy; chuyển tình huống đặt lại mô phỏng. |
-| **Phân tích tác động logistics** | Tính nhu cầu và đối chiếu với năng lực theo kế hoạch hiện tại, BOM, Model Mix và nguồn lực. |
-| **1. Nhu cầu vật tư** | Xác định vật tư cần dùng, lượng tiêu thụ theo giờ, số chuyến và thời gian tồn kho còn đáp ứng được. |
-| **2. Nhu cầu logistics** | Tính nhu cầu vận chuyển theo Line A/B, luồng kho → AMR → tập kết → AGV → chuyền. |
-| **3. Năng lực và nguồn lực** | Xét số AMR, AGV cấp vật tư, chu kỳ xe, khu tập kết, năng lực chuyền và nhân viên đóng gói. |
-| **Bottleneck / rủi ro** | Nhận diện rủi ro thiếu vật tư, quá tải vận chuyển và thiếu nhân lực đóng gói. Chuyền dừng khi thiếu vật tư; hàng chưa đóng gói tích tụ khi nhân viên không xử lý kịp. |
-| **Mô phỏng what-if** | Tạo các phương án bổ sung AMR, AGV hoặc nhân viên đúng chuyền thiếu người, cùng các phương án kết hợp. Bấm chọn để xem ngay trong 3D. |
-| **So sánh các kịch bản** | So sánh năng lực, tải vận chuyển, sản lượng, tải đóng gói, lượng hàng chờ tăng mỗi giờ, giao trễ, điểm nguồn lực và điểm đánh giá. Nút Chi tiết hiển thị thay đổi trước–sau. |
-| **Đề xuất phương án** | Ưu tiên phương án giữ tải cấp vật tư và đóng gói trong ngưỡng 85%. Nếu không có, ưu tiên phương án không còn quá tải; nếu vẫn chưa đạt, chọn phương án có mức tải lớn nhất thấp hơn. Sau đó so sánh điểm và nguồn lực bổ sung. |
-| **Con người phê duyệt** | Người dùng xem trước, kiểm tra chi tiết và bấm Áp dụng vào mô phỏng. |
-| **Thực thi** | Mô phỏng chạy với nguồn lực đã chọn: cấp vật tư → sản xuất → đóng gói → AGV thành phẩm → kho thành phẩm. Không phát lệnh tới thiết bị nhà máy. |
-| **Kết quả thực tế** | Trong demo, đây là kết quả chạy mô phỏng được ghi vào lịch sử: sản lượng, chuyến giao, tồn vật tư và trạng thái chuyền. Có thể nhập mức sử dụng thực tế để đối chiếu, nhưng chưa có nguồn dữ liệu nhà máy trực tiếp. |
-| **Học hỏi → dự báo → phân tích tác động** | Thể hiện vòng phản hồi mong muốn của hệ thống. Demo lưu lịch sử để đối chiếu, chưa tự học hoặc tự hiệu chỉnh mô hình từ kết quả thực tế. |
+1. **Chọn tình huống và kế hoạch sản xuất.** Người dùng điều chỉnh sản lượng, Model Mix và các đầu vào liên quan. Đổi sản lượng cập nhật nhịp sản xuất và dự báo, giữ trạng thái 3D đang chạy; chuyển tình huống đặt lại mô phỏng.
+2. **Tính nhu cầu và năng lực.** Chương trình tính lượng vật tư theo BOM và Model Mix, nhu cầu chuyến vận chuyển của Line A/B, năng lực AMR/AGV và năng lực nhân viên đóng gói.
+3. **Theo dõi mô phỏng và điểm nghẽn.** AMR đưa vật tư từ kho tới khu tập kết; AGV cấp vào chuyền. Chuyền sản xuất khi đủ vật tư, nhân viên đóng gói thành phẩm, rồi AGV đưa hàng tới kho thành phẩm. Giao diện thể hiện thiếu vật tư, tải vận chuyển và tải đóng gói; hàng chưa đóng gói chờ trước bàn khi nhân viên xử lý không kịp.
+4. **So sánh các phương án what-if.** Chương trình tạo phương án bổ sung AMR, AGV, nhân viên đúng chuyền thiếu người hoặc kết hợp các nguồn lực. Các phương án giữ nguyên sản lượng mục tiêu và được so sánh bằng năng lực, mức tải, giao trễ, điểm nguồn lực và điểm đánh giá.
+5. **Xem trước phương án.** Bấm chọn một hàng trong bảng để xem ngay phương án đó trong 3D và dự báo tương ứng. Bấm **Chi tiết** để xem những thay đổi trước–sau, gồm số xe và nhân viên bổ sung theo chuyền.
+6. **Chọn và áp dụng.** Người dùng xem khuyến nghị rồi bấm **Áp dụng vào mô phỏng**. Chương trình cập nhật nguồn lực và tiếp tục chạy; hàng chờ đóng gói được giữ lại để quan sát tác động của phương án.
+7. **Theo dõi kết quả và lịch sử.** Người dùng quan sát sản lượng, chuyến giao, tồn vật tư và trạng thái chuyền; xem cấu hình cùng dự báo trước–sau trong lịch sử và có thể nhập mức sử dụng thực tế để đối chiếu.
+
+Các thao tác áp dụng chỉ tác động tới mô phỏng. Demo chưa kết nối dữ liệu thiết bị nhà máy hoặc tự học từ kết quả chạy.
 
 ### Luồng vật tư và thành phẩm trong 3D
 
@@ -91,22 +85,9 @@ Hàng chưa đóng gói chờ trước bàn → Nhân viên đóng gói → Ki�
 
 Điểm giảm giao trễ và rủi ro được tính theo mức cải thiện so với kế hoạch hiện tại. Điểm tiết kiệm so sánh với phương án tốn nhiều điểm nguồn lực nhất trong nhóm. Điểm nguồn lực là quy ước demo, **không phải giá tiền**: mỗi xe bổ sung 12 điểm, mỗi nhân viên đóng gói bổ sung 6 điểm.
 
-## Những thay đổi so với repo ban đầu
+## Tài liệu bổ sung
 
-Mốc đối chiếu: commit đầu tiên **`b74ad1f` — Initial commit: DENSO Logistics Digital Twin (React + Vite + Three.js)**. Danh sách dưới đây mô tả trạng thái hiện tại của workspace, bao gồm thay đổi chưa commit.
-
-| Hạng mục | Repo ban đầu | Demo hiện tại |
-| --- | --- | --- |
-| Luồng logistics | Cảnh kho, lấy/gom, tập kết, tuyến AMR/Forklift và chuyền; thử thay đổi số AMR hoặc ca vận chuyển. | Tách AMR kho–tập kết và AGV tập kết–chuyền, phân bổ xe theo nhu cầu A/B và quản lý giao nhận vật tư. |
-| Mô hình vật tư | Dữ liệu mock tách thành nhiều JSON và cảnh minh họa. | BOM theo model, Model Mix, tồn kho, số kiện/chuyến và chu kỳ xe cùng tham gia tính nhu cầu; có sổ theo dõi vật tư qua các công đoạn. |
-| Trạng thái sản xuất | Chuyển động minh họa của sản phẩm trong cảnh. | Sản phẩm được tạo từ tiêu thụ vật tư mô phỏng; chuyền dừng khi thiếu vật tư, sản phẩm không quay vòng vô hạn. |
-| Thành phẩm và nhân lực | Chưa có luồng đóng gói trong cảnh đang chạy. | Thêm NPC đóng gói, hàng chờ trước bàn, kiện chờ AGV, khu tập kết và kho thành phẩm; tải nhân viên tham gia đánh giá what-if. |
-| Kịch bản what-if | Các phương án nguồn lực nạp sẵn. | Tính lại theo đầu vào hiện tại; tự tạo phương án nhân lực đúng chuyền và các phương án kết hợp xe + nhân viên. |
-| Cách chọn phương án | README giới thiệu hệ thống AI đánh giá rủi ro và chi phí. | Khuyến nghị theo quy tắc minh bạch, điểm 0–100 cao hơn tốt hơn; ưu tiên xử lý cả cấp vật tư và đóng gói. Không có mô hình AI tự học. |
-| Tương tác quyết định | So sánh phương án trong giao diện ban đầu. | Chọn hàng trong bảng để xem ngay, popup Chi tiết trước–sau, nút áp dụng, lịch sử chạy và đối chiếu mức sử dụng nhập tay. |
-| Giao diện | Nhãn 3D và giao diện ban đầu. | Thẻ trạng thái đóng gói gọn, cảnh báo qua ⓘ, nhãn chi tiết chỉ hiện khi hover, điểm sắp giảm dần với phương án giữ kế hoạch đứng đầu; nhu cầu/năng lực hiển thị số nguyên. |
-| Thay đổi kế hoạch | Chưa có quy tắc giữ trạng thái hiện tại được tài liệu hóa. | Đổi kế hoạch cập nhật trực tiếp, không đặt lại cảnh; chuyển tình huống đặt lại mô phỏng. Nút Reset vẫn cho phép đặt lại thủ công. |
-| Cấu hình và mã nguồn | React, Vite, Three.js, TypeScript, các tệp JSON mock. | Dùng `demo_config.json` làm cấu hình chính; tách logic vận hành, nhân lực, vật tư và thành phẩm thành các helper riêng. |
+Xem [Những thay đổi so với repo ban đầu](CHANGES_FROM_INITIAL.md).
 
 ## Cấu hình, giả định và giới hạn
 
@@ -117,7 +98,7 @@ Mốc đối chiếu: commit đầu tiên **`b74ad1f` — Initial commit: DENSO 
 - Giao trễ là dự báo từ tỷ lệ sử dụng năng lực, chưa phải thời gian giao hàng đo từ animation. Các chỉ số không phải telemetry từ thiết bị.
 - Điểm what-if đã xét quá tải nhân viên đóng gói, **chưa xét riêng năng lực và hàng chờ của AGV thành phẩm**. Phương án giải quyết cấp vật tư/đóng gói vì vậy chưa bảo đảm giải quyết toàn bộ luồng tới kho thành phẩm.
 - Kho thành phẩm hiển thị tối đa 36 kiện/chuyền; hàng chưa đóng gói hiển thị tối đa 48 sản phẩm/chuyền. Bộ đếm nội bộ vẫn giữ số lượng đầy đủ, nhãn đóng gói hiển thị tổng hàng chưa đóng gói.
-- Lịch sử dùng để lưu và đối chiếu. Nhập mức sử dụng thực tế không tự huấn luyện hoặc hiệu chỉnh mô hình. Khối học hỏi trong sơ đồ là hướng phát triển tiếp theo.
+- Lịch sử dùng để lưu và đối chiếu. Nhập mức sử dụng thực tế không tự huấn luyện hoặc hiệu chỉnh mô hình. Khả năng tự học là hướng phát triển tiếp theo.
 
 ## Mã nguồn của luồng đang chạy
 
