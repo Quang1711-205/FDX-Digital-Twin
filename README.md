@@ -73,7 +73,7 @@ Hình minh họa các công đoạn của demo
 
 ## Tài liệu bổ sung
 
-Xem [Những thay đổi so với repo ban đầu](CHANGES_FROM_INITIAL.md).
+Xem [Những thay đổi so với repo ban đầu](changelogs.md).
 
 ## Cấu hình, giả định và giới hạn
 
