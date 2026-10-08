@@ -2101,7 +2101,7 @@ export const App: React.FC = () => {
               DEMO · GIẢ ĐỊNH
             </span>
             <span className="simulation-badge">
-              <i /> Mô phỏng đang chạy
+              <i /> Demo Simulation
             </span>
             <span>{P.shift}</span>
           </div>
@@ -2479,6 +2479,7 @@ export const App: React.FC = () => {
                   Tình huống
                   <select
                     aria-label="Chọn tình huống demo"
+                    title={activeDemoScenario.name}
                     value={activeDemoScenarioId}
                     disabled={executionLocked && !done?.actualResult}
                     onChange={(event) =>

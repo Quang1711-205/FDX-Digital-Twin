@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Factory, Bot, Clock, Package, Users, Warehouse } from "lucide-react";
+import { Factory, Bot, Clock, Package, Users, Warehouse, Info, CircleCheck, CirclePause } from "lucide-react";
 import {
   CartesianGrid,
   Line,
@@ -97,17 +97,29 @@ export function FactoryOverview({
     <>
       <section className="dashboard-card overview-card">
         <div className="section-heading">
-          <h2>Factory Overview</h2>
-          <span className="live-badge">
-            <i /> Demo
-          </span>
+          <h2>Factory Overview</h2>        
         </div>
         <div className="overview-item">
           <span className="overview-icon red">
             <Factory size={21} />
           </span>
           <div>
-            <div className="metric-label">Nhịp sản xuất mô phỏng</div>
+            <div className="overview-production-heading">
+              <div className="metric-label">Nhịp sản xuất mô phỏng</div>
+              <div className="packing-info overview-production-info">
+                <button type="button" className="packing-info-button" aria-label="Chi tiết sản xuất mô phỏng" aria-describedby="overview-production-tooltip">
+                  <Info size={15} aria-hidden="true" />
+                </button>
+                <div id="overview-production-tooltip" role="tooltip" className="packing-info-tooltip">
+                  <strong>Trạng thái sản xuất</strong>
+                  <div className="overview-produced-total"><span>Đã mô phỏng</span><b>{Math.max(0, Math.floor(producedUnits))}<small> sản phẩm</small></b></div>
+                  {["A", "B"].map(line => <div key={line} className={`overview-line-state ${lineRunning[line] ? "is-running" : "is-stopped"}`}>
+                    <b>Line {line}</b>
+                    <span>{lineRunning[line] ? <CircleCheck size={13} aria-hidden="true" /> : <CirclePause size={13} aria-hidden="true" />}{lineRunning[line] ? "Đang chạy" : "Đang dừng"}</span>
+                  </div>)}
+                </div>
+              </div>
+            </div>
             <div className="overview-value">
               {production.toFixed(0)}
               <span>sản phẩm/giờ</span>
@@ -118,11 +130,6 @@ export function FactoryOverview({
               </div>
               <b>{percent}%</b>
             </div>
-            <p className="helper-text">
-              Đã mô phỏng {producedUnits.toFixed(1)} sản phẩm · Line A{" "}
-              {lineRunning.A ? "đang chạy" : "đang dừng"} · B{" "}
-              {lineRunning.B ? "đang chạy" : "đang dừng"}
-            </p>
           </div>
         </div>
         <div className="overview-item">

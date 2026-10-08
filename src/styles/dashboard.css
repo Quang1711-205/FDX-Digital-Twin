@@ -514,6 +514,7 @@ main.app-main {
   left: 12px;
   right: 12px;
   pointer-events: none;
+  flex-wrap: wrap;
 }
 .viewport-title,
 .viewport-location,
@@ -554,6 +555,8 @@ main.app-main {
   gap: 8px;
   margin-left: auto;
   pointer-events: auto;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .viewport-controls > select {
   margin: 0;
@@ -580,14 +583,14 @@ main.app-main {
   pointer-events: auto;
 }
 .viewport-toolbar .viewport-scenario select {
-  width: 142px;
-  max-width: 142px;
+  width: 180px;
+  max-width: 180px;
   margin: 0;
 }
 .viewport-toolbar .viewport-speed select {
   margin: 0;
-  width: 62px;
-  min-width: 62px;
+  width: 86px;
+  min-width: 86px;
   padding: 7px 5px;
 }
 .viewport-controls + button {
@@ -1621,3 +1624,49 @@ main.app-main {
 .insight-alert.notice { background: #fff8e8; }
 .insight-alert.notice h3 { color: #946200; }
 .packing-status-badge.is-notice { background: #fff1cd; color: #946200; }
+#stage { container-type: inline-size; }
+#stage .viewport-toolbar { gap: 6px; }
+#stage .viewport-toolbar select,
+#stage .viewport-toolbar button,
+#stage .viewport-title,
+#stage .viewport-location {
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 9px;
+  font-size: 11px;
+  line-height: 1.2;
+  border-radius: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+#stage .viewport-controls { gap: 6px; }
+#stage .viewport-controls > select { width: 96px; max-width: 96px; }
+#stage .viewport-scenario select { width: 180px; max-width: 180px; min-width: 0; text-overflow: ellipsis; }
+#stage .viewport-speed select { width: 86px; min-width: 86px; max-width: 86px; }
+#stage .viewport-toolbar button { font-weight: 600; margin: 0; }
+#stage .viewport-scenario, #stage .viewport-speed { gap: 5px; font-size: 10px; }
+@container (max-width: 900px) {
+  #stage .viewport-location { display: none; }
+}
+@container (max-width: 680px) {
+  #stage .viewport-controls { order: 2; flex: 1 1 100%; margin-left: 0; }
+  #stage .viewport-toolbar > button { margin-left: auto; }
+  #stage .hint { top: 90px; }
+}
+@container (max-width: 400px) {
+  #stage .viewport-scenario { flex: 1 1 100%; }
+  #stage .viewport-scenario select { flex: 1; width: auto; max-width: none; }
+  #stage .hint { top: 128px; }
+}
+.overview-production-heading { display: flex; align-items: center; justify-content: space-between; gap: 5px; }
+.overview-production-info { flex-shrink: 0; }
+#overview-production-tooltip { width: 210px; padding: 12px; text-align: left; }
+#overview-production-tooltip > strong { font-size: 12px; margin-bottom: 8px; }
+.overview-produced-total { padding: 8px; border-radius: 6px; background: #ffffff0d; margin-bottom: 8px; }
+#overview-production-tooltip .overview-produced-total > span { font-size: 10px; margin: 0; color: #b8c9df; }
+.overview-produced-total > b { display: block; font-size: 19px; line-height: 1.5; color: #fff; }
+.overview-produced-total small { font-size: 10px; font-weight: 400; }
+.overview-line-state { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 0; font-size: 11px; }
+#overview-production-tooltip .overview-line-state > span { display: inline-flex; align-items: center; gap: 4px; margin: 0; font-size: 11px; }
+#overview-production-tooltip .is-running > span { color: #6ee7b7; }
+#overview-production-tooltip .is-stopped > span { color: #fcd34d; }
